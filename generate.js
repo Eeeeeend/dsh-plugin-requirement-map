@@ -46,13 +46,21 @@ const SYSTEM_PROMPT = [
   '4. current 写当前要求；被替代的口径写进 old；未确认事项写进 note；source 写文档相对路径。',
 ].join('\n')
 
-/** Recursively read requirement-bearing documents under one root. */
+/** Rank documents by how likely they hold requirement prose. */
+function docPriority(path) {
+  const lower = path.toLowerCase()
+  if (/requirements?|需求/.test(lower)) return 0
+  if (/(^|\/)(readme|agents|changelog|contributing)\.(md|mdx|txt)$/.test(lower)) return 1
+  if (lower.startsWith('docs/')) return 2
+  return 3
+}
+
+/** Walk one root and return candidate document paths, then read them by priority. */
 async function collectDocs(root) {
-  const files = []
-  let used = 0
+  const candidates = []
 
   const walk = async (dir, depth) => {
-    if (depth > DOC_MAX_DEPTH || used >= DOC_BUDGET || files.length >= DOC_MAX_FILES) return
+    if (depth > DOC_MAX_DEPTH || candidates.length >= 400) return
     let entries
     try {
       entries = await readdir(dir, { withFileTypes: true })
@@ -61,7 +69,7 @@ async function collectDocs(root) {
     }
     entries.sort((left, right) => left.name.localeCompare(right.name))
     for (const entry of entries) {
-      if (used >= DOC_BUDGET || files.length >= DOC_MAX_FILES) return
+      if (candidates.length >= 400) return
       if (entry.name.startsWith('.') && entry.name !== '.agents') continue
       const full = join(dir, entry.name)
       if (entry.isDirectory()) {
@@ -73,21 +81,29 @@ async function collectDocs(root) {
       const dot = entry.name.lastIndexOf('.')
       const extension = dot === -1 ? '' : entry.name.slice(dot)
       if (!DOC_EXTENSIONS.has(extension) && entry.name !== 'package.json') continue
-      try {
-        const info = await stat(full)
-        if (info.size > 200_000) continue
-        const text = await readFile(full, 'utf8')
-        const slice = text.slice(0, Math.max(0, DOC_BUDGET - used))
-        if (slice.length === 0) continue
-        used += slice.length
-        files.push({ path: relative(root, full).split('\\').join('/'), text: slice })
-      } catch {
-        // Unreadable file; skip it.
-      }
+      candidates.push({ path: relative(root, full).split('\\').join('/'), full })
     }
   }
 
   await walk(root, 0)
+  candidates.sort((left, right) => docPriority(left.path) - docPriority(right.path) || left.path.localeCompare(right.path))
+
+  const files = []
+  let used = 0
+  for (const candidate of candidates) {
+    if (used >= DOC_BUDGET || files.length >= DOC_MAX_FILES) break
+    try {
+      const info = await stat(candidate.full)
+      if (info.size > 200_000) continue
+      const text = await readFile(candidate.full, 'utf8')
+      const slice = text.slice(0, Math.max(0, DOC_BUDGET - used))
+      if (slice.length === 0) continue
+      used += slice.length
+      files.push({ path: candidate.path, text: slice })
+    } catch {
+      // Unreadable file; skip it.
+    }
+  }
   return files
 }
 
@@ -104,15 +120,52 @@ function buildPrompt(docs, targetPath) {
   return [...header, ...body].join('\n')
 }
 
-/** Strip code fences and isolate the outermost JSON object. */
+/**
+ * Find the first balanced JSON object in a model response.
+ *
+ * Models often wrap JSON in prose or fences, so a naive first-brace/last-brace
+ * slice is unreliable; this scans balanced braces while respecting strings.
+ */
+function findJsonObject(text) {
+  const source = String(text ?? '')
+  for (let start = source.indexOf('{'); start !== -1; start = source.indexOf('{', start + 1)) {
+    let depth = 0
+    let inString = false
+    let escaped = false
+    for (let index = start; index < source.length; index++) {
+      const ch = source[index]
+      if (inString) {
+        if (escaped) escaped = false
+        else if (ch === '\\') escaped = true
+        else if (ch === '"') inString = false
+        continue
+      }
+      if (ch === '"') {
+        inString = true
+        continue
+      }
+      if (ch === '{') depth += 1
+      else if (ch === '}') {
+        depth -= 1
+        if (depth === 0) {
+          try {
+            return JSON.parse(source.slice(start, index + 1))
+          } catch {
+            break
+          }
+        }
+      }
+    }
+  }
+  return undefined
+}
+
+/** Extract one ledger-shaped object, or fail with a diagnostic snippet. */
 function extractJson(text) {
-  let value = String(text ?? '').trim()
-  const fence = value.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)
-  if (fence) value = fence[1].trim()
-  const start = value.indexOf('{')
-  const end = value.lastIndexOf('}')
-  if (start === -1 || end === -1 || end <= start) throw new Error('model returned no JSON object')
-  return JSON.parse(value.slice(start, end + 1))
+  const value = findJsonObject(text)
+  if (value !== undefined) return value
+  const snippet = String(text ?? '').trim().slice(0, 200)
+  throw new Error(snippet ? `model returned no JSON object; got: ${snippet}` : 'model returned an empty response')
 }
 
 /** Normalize a model-produced ledger into the canonical shape. */
@@ -155,7 +208,7 @@ function normalizeLedger(raw) {
 }
 
 /** Output cap for one extraction call. */
-const MAX_OUTPUT_TOKENS = 8192
+const MAX_OUTPUT_TOKENS = 16384
 /** Deadline for one extraction call. */
 const TIMEOUT_MS = 120_000
 
@@ -187,7 +240,8 @@ async function prepareCall(llm, selection, signal) {
 }
 
 /**
- * Stream one model call and return its joined text.
+ * Stream one model call and return its joined text, plus reasoning as a
+ * fallback when the model emits no visible text.
  *
  * `finish.reason` is an object (`{ kind }`), not a string: a stream that ends
  * without one, or ends in `aborted`/`error`, is a failure rather than an empty
@@ -214,10 +268,12 @@ async function callModel(llm, selection, prompt, signal) {
     }
     const iterable = call ? call.stream(options) : llm.stream(options)
     let text = ''
+    let reasoning = ''
     let finish
     for await (const chunk of iterable) {
       if (!chunk || typeof chunk !== 'object') continue
       if (chunk.type === 'text-delta' && typeof chunk.text === 'string') text += chunk.text
+      else if (chunk.type === 'reasoning-delta' && typeof chunk.text === 'string') reasoning += chunk.text
       else if (chunk.type === 'finish') {
         finish = chunk.reason
         break
@@ -228,7 +284,7 @@ async function callModel(llm, selection, prompt, signal) {
     if (finish.kind === 'error') {
       throw new Error(`model call failed: ${finish.failure?.code ?? 'UNKNOWN'}`)
     }
-    return text
+    return { text, reasoning }
   } finally {
     clearTimeout(timer)
     signal?.removeEventListener?.('abort', onAbort)
@@ -260,13 +316,34 @@ export async function generateLedger(ctx, options) {
   const docs = await collectDocs(root)
   if (docs.length === 0) throw new Error('no requirement documents found in this workspace')
 
-  const text = await callModel(llm, selection, buildPrompt(docs, targetPath), signal)
-  const ledger = normalizeLedger(extractJson(text))
-  if (ledger.requirements.length === 0) throw new Error('the model extracted no requirements')
+  const basePrompt = buildPrompt(docs, targetPath)
+  const correction = '\n\n注意：上一次输出不是合法 JSON。请重新输出，只输出一个 JSON 对象，'
+    + '以 { 开头、} 结尾，不要任何解释、前后缀或代码围栏。'
 
-  await mkdir(dirname(absoluteTarget), { recursive: true })
-  await writeFile(absoluteTarget, `${JSON.stringify(ledger, null, 2)}\n`, 'utf8')
-  return { ok: true, path: targetPath, absolutePath: absoluteTarget, count: ledger.requirements.length, docs: docs.length }
+  let lastError
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const prompt = attempt === 1 ? basePrompt : basePrompt + correction
+    const { text, reasoning } = await callModel(llm, selection, prompt, signal)
+    // A reasoning model can put the whole answer in reasoning and leave text empty.
+    const raw = text.trim().length > 0 ? text : reasoning
+    try {
+      const ledger = normalizeLedger(extractJson(raw))
+      if (ledger.requirements.length === 0) throw new Error('the model extracted no requirements')
+      await mkdir(dirname(absoluteTarget), { recursive: true })
+      await writeFile(absoluteTarget, `${JSON.stringify(ledger, null, 2)}\n`, 'utf8')
+      return {
+        ok: true,
+        path: targetPath,
+        absolutePath: absoluteTarget,
+        count: ledger.requirements.length,
+        docs: docs.length,
+        attempts: attempt,
+      }
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw new Error(`generation failed after 2 attempts: ${lastError instanceof Error ? lastError.message : String(lastError)}`)
 }
 
 /** Resolve one session's workspace root, live or persisted. */

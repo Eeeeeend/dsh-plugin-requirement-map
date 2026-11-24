@@ -47,6 +47,8 @@ window.__ModuleLoader__.load({
     const CANCEL_ROUTE = '/requirement-map/generate/cancel'
     /** Host route that lists candidate project roots for one Session. */
     const PROJECTS_ROUTE = '/requirement-map/generate/projects'
+    /** Last project chosen per Session, kept across tab remounts. */
+    const PROJECT_MEMORY = new Map()
 
     // ── Locales ──────────────────────────────────────────────────────────
 
@@ -563,31 +565,40 @@ window.__ModuleLoader__.load({
             if (cancelled || !result?.ok) return
             const items = Array.isArray(result.projects) ? result.projects : []
             setProjects(items)
-            setProject((previous) => (previous && items.some((item) => item.path === previous) ? previous : (items[0]?.path ?? '')))
+            setProject((previous) => {
+              const remembered = previous || PROJECT_MEMORY.get(sessionId) || ''
+              if (remembered && items.some((item) => item.path === remembered)) return remembered
+              return items[0]?.path ?? ''
+            })
           })
           .catch(() => {})
         return () => { cancelled = true }
       }, [sessionId])
+
+      // A different project is a different Host job; drop the previous view.
+      React.useEffect(() => {
+        setJob({ state: 'idle', project })
+      }, [project])
 
       // Adopt an existing Host job when the page mounts or the Session changes,
       // so switching away and back keeps showing the same generation.
       React.useEffect(() => {
         if (!sessionId) return undefined
         let cancelled = false
-        fetch(`${STATUS_ROUTE}?sessionId=${encodeURIComponent(sessionId)}`, { credentials: 'same-origin' })
+        fetch(`${STATUS_ROUTE}?sessionId=${encodeURIComponent(sessionId)}&project=${encodeURIComponent(project)}`, { credentials: 'same-origin' })
           .then((response) => (response.ok ? response.json() : undefined))
           .then((result) => { if (!cancelled && result) setJob(result) })
           .catch(() => {})
         return () => { cancelled = true }
-      }, [sessionId])
+      }, [sessionId, project])
 
       // Poll while the Host job runs; a finished job refreshes the map.
       React.useEffect(() => {
-        if (job.state !== 'running' || !sessionId) return undefined
+        if (job.state !== 'running' || !sessionId || !project) return undefined
         let cancelled = false
         const tick = async () => {
           try {
-            const response = await fetch(`${STATUS_ROUTE}?sessionId=${encodeURIComponent(sessionId)}`, { credentials: 'same-origin' })
+            const response = await fetch(`${STATUS_ROUTE}?sessionId=${encodeURIComponent(sessionId)}&project=${encodeURIComponent(project)}`, { credentials: 'same-origin' })
             if (!response.ok) return
             const result = await response.json()
             if (cancelled || !result) return
@@ -603,10 +614,10 @@ window.__ModuleLoader__.load({
           cancelled = true
           clearInterval(timer)
         }
-      }, [job.state, sessionId])
+      }, [job.state, sessionId, project])
 
       const generate = async () => {
-        if (!sessionId || job.state === 'running') return
+        if (!sessionId || !project || job.state === 'running') return
         setJob({ state: 'running' })
         try {
           const response = await fetch(GENERATE_ROUTE, {
@@ -630,7 +641,7 @@ window.__ModuleLoader__.load({
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ sessionId }),
+            body: JSON.stringify({ sessionId, project }),
           })
           setJob({ state: 'cancelled' })
         } catch {
@@ -676,7 +687,10 @@ window.__ModuleLoader__.load({
               id: 'reqmap-project',
               className: 'reqmap-select reqmap-input-path',
               value: project,
-              onChange: (event) => setProject(event.target.value),
+              onChange: (event) => {
+                PROJECT_MEMORY.set(sessionId, event.target.value)
+                setProject(event.target.value)
+              },
             }, projects.map((item) => h('option', { key: item.path, value: item.path }, item.name || item.path)))
             : null,
           ledgers.length > 1 ? h('label', { className: 'reqmap-label', htmlFor: 'reqmap-ledger' }, t('page.ledger')) : null,
@@ -707,7 +721,7 @@ window.__ModuleLoader__.load({
             : h('button', {
               className: 'reqmap-btn reqmap-btn-primary',
               type: 'button',
-              disabled: !sessionId,
+              disabled: !sessionId || !project,
               onClick: generate,
             }, t('page.generate')),
           running ? h('span', { className: 'reqmap-counter' }, t('page.generatingShort')) : null,
@@ -728,7 +742,7 @@ window.__ModuleLoader__.load({
                 : h('button', {
                   className: 'reqmap-btn reqmap-btn-primary reqmap-generate',
                   type: 'button',
-                  disabled: !sessionId,
+                  disabled: !sessionId || !project,
                   onClick: generate,
                 }, t('page.generate')),
               notice ? h('p', { className: 'reqmap-notice' }, notice) : null,

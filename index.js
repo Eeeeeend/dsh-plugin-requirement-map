@@ -103,6 +103,15 @@ async function readJsonBody(req) {
   }
 }
 
+/** The project selection a request names in its query string. */
+function projectOf(url) {
+  try {
+    return new URL(url ?? '/', 'http://localhost').searchParams.get('project') ?? ''
+  } catch {
+    return ''
+  }
+}
+
 /** The Session id a request names, from its body or query string. */
 function sessionIdOf(body, url) {
   const fromBody = typeof body?.sessionId === 'string' ? body.sessionId : ''
@@ -178,7 +187,7 @@ export function apply(ctx) {
           res.end()
           return
         }
-        sendJson(res, 200, generationStatus(sessionIdOf(undefined, req.url)))
+        sendJson(res, 200, generationStatus(sessionIdOf(undefined, req.url), projectOf(req.url)))
       },
     }), 'requirement-map: generate status route')
 
@@ -196,7 +205,10 @@ export function apply(ctx) {
           sendJson(res, 400, { ok: false, error: 'invalid request body' })
           return
         }
-        sendJson(res, 200, cancelGeneration(sessionIdOf(body, req.url)))
+        sendJson(res, 200, cancelGeneration(
+          sessionIdOf(body, req.url),
+          typeof body.project === 'string' ? body.project : projectOf(req.url),
+        ))
       },
     }), 'requirement-map: generate cancel route')
   })

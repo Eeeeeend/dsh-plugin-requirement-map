@@ -433,7 +433,6 @@ export async function generateLedger(ctx, options) {
   if (!root) throw new Error('cannot resolve the workspace root for this session')
 
   const targetPath = path && typeof path === 'string' ? path : 'docs/requirements/requirements.reqmap.json'
-  const absoluteTarget = resolve(root, targetPath)
 
   const selected = typeof options.project === 'string' && options.project !== '' && options.project !== '.' ? options.project : ''
   let project
@@ -450,6 +449,8 @@ export async function generateLedger(ctx, options) {
   if (docs.length === 0) throw new Error('no requirement documents found in this workspace')
 
   const projectLabel = relative(root, project.root).split('\\').join('/') || '.'
+  // Write inside the project so two projects never overwrite the same file.
+  const absoluteTarget = resolve(project.root, targetPath)
   const basePrompt = buildPrompt(docs, targetPath, projectLabel)
   const correction = '\n\n注意：上一次输出不是合法 JSON。请重新输出，只输出一个 JSON 对象，'
     + '以 { 开头、} 结尾，不要任何解释、前后缀或代码围栏。'
@@ -513,9 +514,9 @@ const JOB_TTL_MS = 10 * 60 * 1000
 /** Running and recently finished jobs, keyed by Session id. */
 const jobs = new Map()
 
-/** The job key for one Session. */
-function jobKey(sessionId) {
-  return String(sessionId ?? '')
+/** The job key for one (Session, project) pair. */
+function jobKey(sessionId, project) {
+  return `${String(sessionId ?? '')}::${String(project ?? '') || '.'}`
 }
 
 /** Detached job state for the wire (never the controller). */
@@ -523,6 +524,7 @@ function snapshot(job) {
   return {
     ok: job.state !== 'error',
     state: job.state,
+    project: job.project ?? '',
     startedAt: job.startedAt ?? null,
     finishedAt: job.finishedAt ?? null,
     error: job.error ?? null,
@@ -541,12 +543,13 @@ function prune(now = Date.now()) {
  * Start one background generation, or return the running one.
  * @returns the detached job state.
  */
-export function startGeneration(ctx, { sessionId, path }) {
-  const key = jobKey(sessionId)
+export function startGeneration(ctx, { sessionId, path, project = '' }) {
+  const key = jobKey(sessionId, project)
   const existing = jobs.get(key)
   if (existing?.state === 'running') return snapshot(existing)
   const controller = new AbortController()
   const job = {
+    project,
     state: 'running',
     startedAt: Date.now(),
     finishedAt: null,
@@ -555,7 +558,7 @@ export function startGeneration(ctx, { sessionId, path }) {
     controller,
   }
   jobs.set(key, job)
-  generateLedger(ctx, { sessionId, path, signal: controller.signal })
+  generateLedger(ctx, { sessionId, path, project, signal: controller.signal })
     .then((result) => {
       job.state = 'done'
       job.result = result
@@ -570,23 +573,23 @@ export function startGeneration(ctx, { sessionId, path }) {
   return snapshot(job)
 }
 
-/** Read one Session's job state. */
-export function generationStatus(sessionId) {
+/** Read one (Session, project) job state. */
+export function generationStatus(sessionId, project = '') {
   prune()
-  const job = jobs.get(jobKey(sessionId))
+  const job = jobs.get(jobKey(sessionId, project))
   return job
     ? snapshot(job)
-    : { ok: true, state: 'idle', startedAt: null, finishedAt: null, error: null, result: null }
+    : { ok: true, state: 'idle', project: project ?? '', startedAt: null, finishedAt: null, error: null, result: null }
 }
 
 /** Cancel one running generation. */
-export function cancelGeneration(sessionId) {
-  const job = jobs.get(jobKey(sessionId))
+export function cancelGeneration(sessionId, project = '') {
+  const job = jobs.get(jobKey(sessionId, project))
   if (job?.state === 'running') {
     job.state = 'cancelled'
     job.error = 'cancelled'
     job.finishedAt = Date.now()
     job.controller.abort(new Error('cancelled by user'))
   }
-  return generationStatus(sessionId)
+  return generationStatus(sessionId, project)
 }

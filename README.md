@@ -4,9 +4,15 @@
 
 <sub>DSH (DeepSeek Harness) plugin that turns a project's requirement ledger into an interactive mind map — auto-discovery, background generation, hover preview, and inline status editing.</sub>
 
-![需求导图演示：悬停展开分组、展开需求对比当前/旧口径](docs/preview.gif)
+**右侧栏标签页**（边写代码边看，可拖拽、可全屏）：
 
-*悬停分组自动展开，悬停需求展开「当前要求 / 旧要求」对比，点击可钉住。*
+<img src="docs/preview-sidebar.gif" alt="右侧栏需求导图：悬停分组自动展开，悬停需求展开当前/旧要求对比" width="620">
+
+**独立页面**（全屏浏览，多项目切换）：
+
+<img src="docs/preview.gif" alt="需求导图独立页面：多分支自适应列布局，悬停展开并对比当前/旧口径" width="1000">
+
+*悬停分组自动展开，悬停需求展开「当前要求 / 旧要求」对比，点击可钉住；收起的内容不占 DOM，大台账也不卡。*
 
 ---
 

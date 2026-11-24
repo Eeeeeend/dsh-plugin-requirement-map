@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-requirement-map",
   "version": "0.1.0",
-  "description": "DSH plugin: render a project requirement mind map from a JSON ledger",
+  "description": "DSH 插件：把项目需求台账渲染成可交互思维导图，自动发现台账、后台生成、悬停展开、状态可直接编辑。／ DSH plugin: render a project requirement ledger as an interactive mind map with auto-discovery, background generation, hover preview, and inline status editing.",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -21,7 +21,21 @@
     "docs",
     "icon.svg",
     "skills",
-    "README.md"
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "deepseek",
+    "requirements",
+    "requirement-map",
+    "mind-map",
+    "requirement-tracking",
+    "ledger",
+    "project-management",
+    "hermes"
   ],
   "dsh": {
     "bundle": {
@@ -40,5 +54,14 @@
       ]
     }
   },
-  "license": "MIT"
+  "author": "Eeeeeend",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Eeeeeend/dsh-plugin-requirement-map.git"
+  },
+  "homepage": "https://github.com/Eeeeeend/dsh-plugin-requirement-map#readme",
+  "bugs": {
+    "url": "https://github.com/Eeeeeend/dsh-plugin-requirement-map/issues"
+  }
 }

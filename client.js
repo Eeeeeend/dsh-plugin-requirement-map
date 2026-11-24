@@ -168,7 +168,7 @@ window.__ModuleLoader__.load({
 .reqmap-title{margin:0 0 3px;font-size:18px;font-weight:650;letter-spacing:.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .reqmap-head-compact .reqmap-title{font-size:15px}
 .reqmap-context{margin:2px 0;color:var(--dsw-alias-label-secondary);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.reqmap-toolbar{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 16px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 92%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--dsw-alias-border-l2)}
+.reqmap-toolbar{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 16px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 97%,transparent);border-bottom:1px solid var(--dsw-alias-border-l2)}
 .reqmap-toolbar-group{display:flex;align-items:center;gap:6px;min-width:0}
 .reqmap-toolbar-right{margin-left:auto;gap:4px}
 .reqmap-label{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap}
@@ -218,7 +218,7 @@ window.__ModuleLoader__.load({
 .reqmap-collapse[data-open="true"]>.reqmap-collapse-inner{transform:translateY(0)}
 .reqmap-reqs{position:relative;display:flex;flex-direction:column;gap:5px;padding:3px 4px 7px 14px}
 .reqmap-reqs::before{content:"";position:absolute;left:5px;top:2px;bottom:9px;width:1px;background:color-mix(in srgb,var(--reqmap-accent) 18%,transparent)}
-.reqmap-req{border:1px solid color-mix(in srgb,var(--reqmap-accent) 10%,var(--dsw-alias-border-l2));border-radius:7px;background:var(--dsw-alias-bg-layer-1);transition:border-color 160ms ease,box-shadow 200ms ease,transform 200ms cubic-bezier(.2,.7,.3,1),background-color 200ms ease}
+.reqmap-req{contain:layout style;border:1px solid color-mix(in srgb,var(--reqmap-accent) 10%,var(--dsw-alias-border-l2));border-radius:7px;background:var(--dsw-alias-bg-layer-1);transition:border-color 160ms ease,box-shadow 200ms ease,transform 200ms cubic-bezier(.2,.7,.3,1),background-color 200ms ease}
 .reqmap-req:hover{border-color:color-mix(in srgb,var(--reqmap-accent) 26%,var(--dsw-alias-border-l2));box-shadow:0 1px 6px rgba(16,24,40,.06);transform:translateY(-1px)}
 .reqmap-req.is-open:hover{transform:none}
 .reqmap-req[data-preview="true"],.reqmap-group[data-preview="true"]{border-color:color-mix(in srgb,var(--reqmap-accent) 30%,var(--dsw-alias-border-l2));box-shadow:0 3px 14px rgba(16,24,40,.07)}
@@ -331,6 +331,15 @@ window.__ModuleLoader__.load({
       }
       const previewed = !pinned && hovered
       const open = pinned || previewed
+      // Collapsed rows hold no comparison body and no status control, which is
+      // most of the DOM in a large ledger.
+      const [mounted, setMounted] = React.useState(open)
+      if (open && !mounted) setMounted(true)
+      React.useEffect(() => {
+        if (open) return undefined
+        const timer = setTimeout(() => setMounted(false), 320)
+        return () => clearTimeout(timer)
+      }, [open])
       return h('div', {
         className: 'reqmap-req' + (open ? ' is-open' : ''),
         'data-preview': String(previewed),
@@ -352,7 +361,7 @@ window.__ModuleLoader__.load({
             h('span', { className: 'reqmap-rid' }, row.id),
             h('span', { className: 'reqmap-req-title' }, row.title),
           ),
-          canEdit
+          canEdit && open
             ? h('select', {
               className: 'reqmap-badge reqmap-badge-select ' + statusTone(displayStatus),
               value: displayStatus,
@@ -368,31 +377,33 @@ window.__ModuleLoader__.load({
         ),
         h('div', { className: 'reqmap-collapse', 'data-open': String(open) },
           h('div', { className: 'reqmap-collapse-inner' },
-            h('div', { className: 'reqmap-compare' + (row.old ? '' : ' single') },
-              h('div', { className: 'reqmap-version reqmap-current' },
-                h('strong', null, t('current')),
-                h('p', null, row.current),
+            mounted ? [
+              h('div', { className: 'reqmap-compare' + (row.old ? '' : ' single') },
+                h('div', { className: 'reqmap-version reqmap-current' },
+                  h('strong', null, t('current')),
+                  h('p', null, row.current),
+                ),
+                row.old
+                  ? h('div', { className: 'reqmap-version reqmap-old' },
+                    h('strong', null, t('old')),
+                    h('p', null, row.old),
+                  )
+                  : null,
               ),
-              row.old
-                ? h('div', { className: 'reqmap-version reqmap-old' },
-                  h('strong', null, t('old')),
-                  h('p', null, row.old),
+              (row.note || row.source)
+                ? h('div', { className: 'reqmap-notes' },
+                  row.note ? h('p', { className: 'reqmap-note' }, t('note') + '：' + row.note) : null,
+                  row.source ? h('p', { className: 'reqmap-source' }, t('source') + '：' + row.source) : null,
                 )
                 : null,
-            ),
-            (row.note || row.source)
-              ? h('div', { className: 'reqmap-notes' },
-                row.note ? h('p', { className: 'reqmap-note' }, t('note') + '：' + row.note) : null,
-                row.source ? h('p', { className: 'reqmap-source' }, t('source') + '：' + row.source) : null,
-              )
-              : null,
+            ] : null,
           ),
         ),
       )
     }
 
     /** One group: a row inside its branch, with its own hover preview. */
-    function GroupBlock({ name, count, pinned, onTogglePin, children }) {
+    function GroupBlock({ groupKey, name, count, pinned, onTogglePin, children }) {
       const [hovered, setHovered] = React.useState(false)
       const timer = useRef(0)
       React.useEffect(() => () => clearTimeout(timer.current), [])
@@ -406,6 +417,15 @@ window.__ModuleLoader__.load({
       }
       const previewed = !pinned && hovered
       const open = pinned || previewed
+      // A collapsed group holds no rows at all: most of a large ledger stays
+      // out of the DOM until it is looked at.
+      const [mounted, setMounted] = React.useState(open)
+      if (open && !mounted) setMounted(true)
+      React.useEffect(() => {
+        if (open) return undefined
+        const timer = setTimeout(() => setMounted(false), 320)
+        return () => clearTimeout(timer)
+      }, [open])
       return h('div', {
         className: 'reqmap-group' + (open ? ' is-open' : ''),
         'data-preview': String(previewed),
@@ -428,7 +448,7 @@ window.__ModuleLoader__.load({
         ),
         h('div', { className: 'reqmap-collapse', 'data-open': String(open) },
           h('div', { className: 'reqmap-collapse-inner' },
-            h('div', { className: 'reqmap-reqs' }, children),
+            mounted ? h('div', { className: 'reqmap-reqs' }, children) : null,
           ),
         ),
       )
@@ -562,6 +582,7 @@ window.__ModuleLoader__.load({
           }))
           groupNodes.push(h(GroupBlock, {
             key: groupKey,
+            groupKey,
             name: group,
             count: list.length,
             pinned: openGroups.has(groupKey),

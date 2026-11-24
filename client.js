@@ -63,8 +63,8 @@ window.__ModuleLoader__.load({
       'page.rescan': '重新扫描',
       'page.scanning': '正在扫描工作区里的需求台账…',
       'page.loading': '正在读取台账…',
-      'page.none': '这个工作区里还没有需求台账。',
-      'page.hint': '让 agent 用 requirement_map 工具生成台账后，这里会自动出现；也可以把台账保存为 *.reqmap.json 后在右侧文件树中打开。',
+      'page.none': '这个项目里还没有需求台账。',
+      'page.hint': '点「生成需求导图」由插件自动生成；也可以把台账保存为 *.reqmap.json 后在右侧文件树中打开。',
       'page.noSession': '当前没有可用会话；请先在左侧打开一个工作区。',
       'page.error': '读取失败',
       'page.generate': '生成需求导图',
@@ -110,8 +110,8 @@ window.__ModuleLoader__.load({
       'page.rescan': 'Rescan',
       'page.scanning': 'Scanning the workspace for requirement ledgers…',
       'page.loading': 'Reading the ledger…',
-      'page.none': 'No requirement ledger in this workspace yet.',
-      'page.hint': 'Ask the agent to create one with the requirement_map tool and it appears here; or save a ledger as *.reqmap.json and open it from the file tree.',
+      'page.none': 'No requirement ledger in this project yet.',
+      'page.hint': 'Use Generate map to create one, or save a ledger as *.reqmap.json and open it from the file tree.',
       'page.noSession': 'No session is available; open a workspace on the left first.',
       'page.error': 'Read failed',
       'page.generate': 'Generate map',
@@ -482,6 +482,16 @@ window.__ModuleLoader__.load({
 
     // ── Global page ──────────────────────────────────────────────────────
 
+    /** Prefer the plugin's canonical path, then reqmap, then the legacy ledger name. */
+    function ledgerRank(path) {
+      const lower = String(path ?? '').toLowerCase()
+      if (lower.endsWith('docs/requirements/requirements.reqmap.json')) return 0
+      if (lower.endsWith('.reqmap.json')) return 1
+      if (/需求台账/u.test(lower)) return 2
+      if (lower.endsWith('requirements.json')) return 3
+      return 4
+    }
+
     /** The session the main view shows, else the first catalogued one. */
     function pickSession(list, retainedBy) {
       const ids = Array.isArray(list?.ids) ? list.ids : []
@@ -525,14 +535,34 @@ window.__ModuleLoader__.load({
           .then((found) => {
             if (cancelled) return
             setLedgers(found)
-            setSelected((previous) => (previous && found.some((item) => item.path === previous) ? previous : (found[0]?.path ?? '')))
-            if (found.length === 0) setState({ kind: 'none' })
           })
           .catch((error) => {
             if (!cancelled) setState({ kind: 'error', message: String(error?.message ?? error) })
           })
         return () => { cancelled = true }
       }, [sessionId, token])
+
+      // One project owns its ledgers: the workspace list is narrowed to the
+      // selected project, so the ledger can never drift to another project.
+      const projectLedgers = React.useMemo(() => {
+        const scoped = project && project !== '.'
+          ? ledgers.filter((item) => item.path === project || item.path.startsWith(project + '/'))
+          : ledgers
+        return [...scoped].sort((left, right) => ledgerRank(left.path) - ledgerRank(right.path) || left.path.localeCompare(right.path))
+      }, [ledgers, project])
+
+      // Auto-select the project's best ledger; never keep one from another project.
+      React.useEffect(() => {
+        setSelected((previous) => (previous && projectLedgers.some((item) => item.path === previous)
+          ? previous
+          : (projectLedgers[0]?.path ?? '')))
+      }, [projectLedgers])
+
+      // An empty project scope is the "no ledger" state, regardless of other projects.
+      React.useEffect(() => {
+        if (!sessionId) return
+        if (projectLedgers.length === 0) setState({ kind: 'none' })
+      }, [projectLedgers, sessionId])
 
       // Load the selected ledger; `token` re-reads it, so a requirement change shows.
       React.useEffect(() => {
@@ -692,15 +722,6 @@ window.__ModuleLoader__.load({
                 setProject(event.target.value)
               },
             }, projects.map((item) => h('option', { key: item.path, value: item.path }, item.name || item.path)))
-            : null,
-          ledgers.length > 1 ? h('label', { className: 'reqmap-label', htmlFor: 'reqmap-ledger' }, t('page.ledger')) : null,
-          ledgers.length > 1
-            ? h('select', {
-              id: 'reqmap-ledger',
-              className: 'reqmap-select reqmap-input-path',
-              value: selected,
-              onChange: (event) => setSelected(event.target.value),
-            }, ledgers.map((ledger) => h('option', { key: ledger.path, value: ledger.path }, ledger.title)))
             : null,
           h('button', {
             className: 'reqmap-btn',

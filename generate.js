@@ -32,10 +32,10 @@ const STATUS_TEMPLATE = {
 }
 
 const SYSTEM_PROMPT = [
-  '你是需求台账提取器。阅读用户给的仓库文档，输出一份需求台账 JSON。',
-  '只输出 JSON 对象本身：第一个字符是 {，最后一个字符是 }。',
-  '不要复述任务，不要分析，不要解释，不要代码围栏。',
-  '只提取文档中真实存在的需求，不要编造。',
+  '你是需求台账整理器。输入是用户在会话中提出的功能要求，输出是一份需求台账 JSON。',
+  '只记录用户明确要求过的功能、行为与方向变更。',
+  '不要记录实现过程、代码结构、工具设计、测试方案、文档维护、发布流程等内部工作。',
+  '只输出 JSON 对象本身：第一个字符是 {，最后一个字符是 }。不要解释，不要代码围栏。',
 ].join('\n')
 
 /** Rank documents by how likely they hold requirement prose. */
@@ -97,6 +97,86 @@ async function collectDocs(root) {
     }
   }
   return files
+}
+
+/**
+ * Collect the user's own prompts from one live Session, oldest first.
+ *
+ * Injected context also travels as `user/message`; only `source.kind === 'user'`
+ * is a requirement the person actually typed.
+ */
+function collectUserMessages(ctx, sessionId, budget = 40_000, limit = 60) {
+  let session
+  try {
+    session = ctx.get('sessions')?.get?.(sessionId)
+  } catch {
+    session = undefined
+  }
+  if (!session || typeof session.deriveMessages !== 'function') return []
+  let messages
+  try {
+    messages = session.deriveMessages()
+  } catch {
+    return []
+  }
+  const texts = []
+  for (let index = messages.length - 1; index >= 0 && texts.length < limit; index--) {
+    const message = messages[index]
+    if (!message || message.role !== 'user') continue
+    if (message.source?.kind !== 'user') continue
+    const parts = []
+    for (const block of message.content ?? []) {
+      if (block?.type === 'text' && typeof block.text === 'string' && block.text.trim()) parts.push(block.text.trim())
+    }
+    const text = parts.join('\n').trim()
+    if (text) texts.push(text.slice(0, 4000))
+  }
+  texts.reverse()
+  // Keep the newest messages that fit the budget, then restore chronological order.
+  const kept = []
+  let used = 0
+  for (let index = texts.length - 1; index >= 0; index--) {
+    const text = texts[index]
+    if (used + text.length > budget && kept.length > 0) break
+    used += text.length
+    kept.push(text)
+  }
+  return kept.reverse()
+}
+
+/**
+ * Build the prompt from the user's own requirements.
+ *
+ * Repository content is deliberately omitted: generating from docs recorded the
+ * plugin's implementation instead of what the person asked for.
+ */
+function buildSessionPrompt(userMessages, targetPath, projectLabel) {
+  const body = userMessages.map((text, index) => `--- 用户要求 ${index + 1} ---\n${text}`)
+  return [
+    `项目根目录：${projectLabel}`,
+    '',
+    '以下是用户在本会话中提出的功能要求（按时间顺序）：',
+    '',
+    ...body,
+    '',
+    '-----',
+    '任务：把这些要求整理成一份项目需求台账 JSON。',
+    `目标路径（仅作记录）：${targetPath}`,
+    '',
+    '硬性要求：',
+    '1. 只记录用户明确要求过的功能、行为、数据口径与方向变更；不要记录实现过程、代码结构、工具设计、测试方案、文档维护、发布流程。',
+    '2. 同一功能的多次迭代合并为一条：最新口径写 current，被替代的旧口径写 old，未确认的写 note。',
+    '3. roots 是功能模块（2-6 个），group 是 roots 下的子分组，id 用 <前缀>-<两位数字> 且唯一。',
+    `4. status 只能取 statuses 的键；statuses 固定为：${Object.keys(STATUS_TEMPLATE).join('、')}。`,
+    '5. source 写“会话用户要求”；不要编造文件路径。',
+    '6. 文档没提到的维度留空字符串，不要臆测。',
+    '',
+    '你的整个回复必须是一个 JSON 对象，第一个字符是 {，最后一个字符是 }。',
+    '不要复述任务，不要分析，不要解释，不要代码围栏。',
+    '',
+    '结构：',
+    '{"meta":{"title":string,"date":"YYYY-MM-DD","branch":string,"head":string,"scope":string,"image_note":string,"statuses":{string:string},"roots":string[]},"requirements":[{"id":string,"root":string,"group":string,"title":string,"current":string,"old":string,"status":string,"source":string,"note":string}]}',
+  ].join('\n')
 }
 
 /**
@@ -445,13 +525,22 @@ export async function generateLedger(ctx, options) {
   } else {
     project = await detectProjectRoot(root)
   }
-  const docs = await collectDocs(project.root)
-  if (docs.length === 0) throw new Error('no requirement documents found in this workspace')
-
   const projectLabel = relative(root, project.root).split('\\').join('/') || '.'
   // Write inside the project so two projects never overwrite the same file.
   const absoluteTarget = resolve(project.root, targetPath)
-  const basePrompt = buildPrompt(docs, targetPath, projectLabel)
+
+  // Prefer what the person actually asked for in this Session; fall back to the
+  // repository's own requirement documents when the Session has no such prompts.
+  const userMessages = collectUserMessages(ctx, sessionId)
+  let docs = []
+  let basePrompt
+  if (userMessages.length > 0) {
+    basePrompt = buildSessionPrompt(userMessages, targetPath, projectLabel)
+  } else {
+    docs = await collectDocs(project.root)
+    if (docs.length === 0) throw new Error('no requirement documents found in this workspace')
+    basePrompt = buildPrompt(docs, targetPath, projectLabel)
+  }
   const correction = '\n\n注意：上一次输出不是合法 JSON。请重新输出，只输出一个 JSON 对象，'
     + '以 { 开头、} 结尾，不要任何解释、前后缀或代码围栏。'
 
@@ -474,6 +563,8 @@ export async function generateLedger(ctx, options) {
         projectReason: project.reason,
         alternatives: project.alternatives?.map((item) => relative(root, item).split('\\').join('/')) ?? [],
         count: ledger.requirements.length,
+        source: userMessages.length > 0 ? 'session' : 'documents',
+        messages: userMessages.length,
         docs: docs.length,
         attempts: attempt,
       }

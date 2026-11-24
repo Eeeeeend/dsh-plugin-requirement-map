@@ -151,80 +151,97 @@ window.__ModuleLoader__.load({
     const CSS = `
 .reqmap-root,.reqmap-page{box-sizing:border-box;display:flex;flex-direction:column;min-height:100%;height:100%;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-base);font-family:var(--dsw-font-family-sans,system-ui,-apple-system,"Microsoft YaHei","Noto Sans CJK SC",sans-serif);font-size:13px;line-height:1.6}
 .reqmap-root *,.reqmap-page *{box-sizing:border-box}
+.reqmap-embedded{height:auto;min-height:0;display:block}
+.reqmap-embedded .reqmap-main{overflow:visible;padding:14px 20px 28px}
 .reqmap-head{padding:16px 20px 12px;border-bottom:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1)}
-.reqmap-title{margin:0 0 4px;font-size:19px;font-weight:650;letter-spacing:.2px}
-.reqmap-context{margin:2px 0;color:var(--dsw-alias-label-secondary);font-size:12px}
-.reqmap-toolbar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 20px;background:var(--dsw-alias-bg-layer-1);border-bottom:1px solid var(--dsw-alias-border-l2)}
-.reqmap-label{color:var(--dsw-alias-label-secondary);font-size:12px}
-.reqmap-input,.reqmap-select{font:inherit;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;padding:5px 9px;min-height:30px}
-.reqmap-input{width:240px;max-width:100%}
-.reqmap-input-path{flex:1 1 320px;min-width:200px}
-.reqmap-btn{font:inherit;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;padding:5px 11px;min-height:30px;cursor:pointer}
-.reqmap-btn:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover)}
-.reqmap-btn:disabled{opacity:.5;cursor:default}
-.reqmap-btn-primary{background:var(--dsw-alias-state-business-primary,#2457c5);border-color:transparent;color:var(--dsw-alias-label-on-color,#fff)}
-.reqmap-btn-primary:hover:not(:disabled){filter:brightness(1.08);background:var(--dsw-alias-state-business-primary,#2457c5)}
-.reqmap-btn-danger{background:var(--dsw-alias-state-error-primary,#a33f3f);border-color:transparent;color:var(--dsw-alias-label-on-color,#fff)}
+.reqmap-head-compact{padding:10px 16px 8px}
+.reqmap-title{margin:0 0 3px;font-size:18px;font-weight:650;letter-spacing:.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reqmap-head-compact .reqmap-title{font-size:15px}
+.reqmap-context{margin:2px 0;color:var(--dsw-alias-label-secondary);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reqmap-toolbar{position:sticky;top:0;z-index:6;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 16px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 92%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--dsw-alias-border-l2)}
+.reqmap-toolbar-group{display:flex;align-items:center;gap:6px;min-width:0}
+.reqmap-toolbar-right{margin-left:auto;gap:4px}
+.reqmap-label{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap}
+.reqmap-input,.reqmap-select{font:inherit;font-size:12px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:7px;padding:5px 9px;min-height:28px;transition:border-color .15s ease,background-color .15s ease}
+.reqmap-input{width:190px;max-width:100%}
+.reqmap-input::placeholder{color:var(--dsw-alias-label-tertiary)}
+.reqmap-input-path{flex:1 1 260px;min-width:180px}
+.reqmap-btn{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:12px;color:var(--dsw-alias-label-secondary);background:transparent;border:1px solid transparent;border-radius:7px;padding:5px 9px;min-height:28px;cursor:pointer;transition:background-color .15s ease,color .15s ease,border-color .15s ease}
+.reqmap-btn:hover:not(:disabled){background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+.reqmap-btn:disabled{opacity:.45;cursor:default}
+.reqmap-btn-soft{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-border-l2)}
+.reqmap-btn-primary{background:var(--dsw-alias-state-business-primary,#2457c5);border-color:transparent;color:var(--dsw-alias-label-on-color,#fff);font-weight:560}
+.reqmap-btn-primary:hover:not(:disabled){filter:brightness(1.08);background:var(--dsw-alias-state-business-primary,#2457c5);color:var(--dsw-alias-label-on-color,#fff)}
+.reqmap-btn-danger{background:var(--dsw-alias-state-error-primary,#a33f3f);border-color:transparent;color:var(--dsw-alias-label-on-color,#fff);font-weight:560}
 .reqmap-btn-danger:hover:not(:disabled){filter:brightness(1.08);background:var(--dsw-alias-state-error-primary,#a33f3f)}
 .reqmap-input:focus-visible,.reqmap-select:focus-visible,.reqmap-btn:focus-visible,.reqmap-group-summary:focus-visible,.reqmap-req-summary:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
-.reqmap-counter{margin-left:auto;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45%}
-.reqmap-legend{display:flex;flex-wrap:wrap;gap:14px;padding:8px 20px;border-bottom:1px solid var(--dsw-alias-border-l2);font-size:12px;color:var(--dsw-alias-label-secondary)}
-.reqmap-legend-item::before{content:"";display:inline-block;width:8px;height:8px;margin-right:6px;border-radius:2px;vertical-align:baseline}
+.reqmap-counter{margin-left:8px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reqmap-legend{display:flex;flex-wrap:wrap;gap:14px;padding:7px 16px;border-bottom:1px solid var(--dsw-alias-border-l2);font-size:11px;color:var(--dsw-alias-label-tertiary)}
+.reqmap-legend-item{display:inline-flex;align-items:center}
+.reqmap-legend-item::before{content:"";display:inline-block;width:7px;height:7px;margin-right:6px;border-radius:2px}
 .reqmap-legend-current::before{background:var(--dsw-alias-state-success-primary,#216744)}
 .reqmap-legend-old::before{background:var(--dsw-alias-state-error-primary,#a33f3f)}
 .reqmap-main{flex:1;overflow:auto;padding:16px 20px 28px}
 .reqmap-page-body{flex:1;overflow:auto;padding:0}
-.reqmap-page-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 20px;border-bottom:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1)}
-.reqmap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start}
-.reqmap-branch{min-width:0}
-.reqmap-branch-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px;padding:9px 13px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:8px}
-.reqmap-branch-title{margin:0;font-size:14px;font-weight:650}
-.reqmap-branch-count{color:var(--dsw-alias-label-tertiary);font-size:12px;white-space:nowrap}
-.reqmap-group{margin:0 0 8px}
-.reqmap-group-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 11px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;cursor:pointer;font-weight:560;list-style:none}
-.reqmap-group-summary::-webkit-details-marker{display:none}
-.reqmap-group-summary::before{content:"▸";color:var(--dsw-alias-label-tertiary);font-size:11px;transition:transform .12s}
-.reqmap-group[open]>.reqmap-group-summary::before{transform:rotate(90deg)}
-.reqmap-group-name{flex:1}
+.reqmap-page-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1)}
+.reqmap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;align-items:start}
+.reqmap-branch{min-width:0;--reqmap-accent:var(--dsw-alias-state-business-primary,#2457c5)}
+.reqmap-branch-head{position:sticky;top:calc(var(--reqmap-toolbar-h,46px) + 6px);z-index:3;display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 12px;border:1px solid color-mix(in srgb,var(--reqmap-accent) 28%,var(--dsw-alias-border-l2));border-left:3px solid var(--reqmap-accent);border-radius:8px;background:color-mix(in srgb,var(--reqmap-accent) 10%,var(--dsw-alias-bg-layer-1));backdrop-filter:blur(8px)}
+.reqmap-branch-dot{width:7px;height:7px;border-radius:50%;background:var(--reqmap-accent);flex:none}
+.reqmap-branch-title{margin:0;font-size:13.5px;font-weight:650;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reqmap-branch-count{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.reqmap-groups{display:flex;flex-direction:column;gap:7px}
+.reqmap-group{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-2);overflow:hidden;transition:border-color .15s ease,box-shadow .15s ease}
+.reqmap-group.is-open{border-color:color-mix(in srgb,var(--reqmap-accent) 30%,var(--dsw-alias-border-l2))}
+.reqmap-group-summary,.reqmap-req-summary{display:flex;align-items:center;gap:8px;width:100%;padding:8px 11px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.reqmap-group-summary{font-weight:560}
+.reqmap-caret{display:inline-block;width:10px;flex:none;color:var(--dsw-alias-label-tertiary);font-size:10px;transition:transform .18s ease}
+.is-open>.reqmap-group-summary>.reqmap-caret,.is-open>.reqmap-req-summary>.reqmap-caret{transform:rotate(90deg)}
+.reqmap-group-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .reqmap-group-count{color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums}
-.reqmap-reqs{display:flex;flex-direction:column;gap:6px;padding:6px 0 2px 12px}
-.reqmap-req{background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l2);border-radius:6px;overflow:hidden}
-.reqmap-req-summary{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;list-style:none}
-.reqmap-req-summary::-webkit-details-marker{display:none}
-.reqmap-req-summary::before{content:"▸";color:var(--dsw-alias-label-tertiary);font-size:10px;transition:transform .12s}
-.reqmap-req[open]>.reqmap-req-summary::before{transform:rotate(90deg)}
-.reqmap-rid{font-family:var(--dsw-font-mono,ui-monospace,monospace);color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap}
+.reqmap-collapse{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .2s cubic-bezier(.2,.7,.3,1),opacity .18s ease}
+.reqmap-collapse[data-open="true"]{grid-template-rows:1fr;opacity:1}
+.reqmap-collapse-inner{overflow:hidden;min-height:0}
+.reqmap-reqs{display:flex;flex-direction:column;gap:6px;padding:2px 8px 8px 14px}
+.reqmap-req{border:1px solid var(--dsw-alias-border-l2);border-radius:7px;background:var(--dsw-alias-bg-layer-1);transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
+.reqmap-req:hover{border-color:color-mix(in srgb,var(--reqmap-accent) 26%,var(--dsw-alias-border-l2));box-shadow:0 1px 6px rgba(16,24,40,.06);transform:translateY(-1px)}
+.reqmap-req.is-open:hover{transform:none}
+.reqmap-req-summary{padding:7px 10px}
+.reqmap-rid{font-family:var(--dsw-font-mono,ui-monospace,monospace);color:var(--dsw-alias-label-tertiary);font-size:10.5px;white-space:nowrap;flex:none}
 .reqmap-req-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.reqmap-badge{flex:none;padding:1px 7px;border-radius:999px;font-size:11px;line-height:1.5;white-space:nowrap;border:1px solid transparent}
-.reqmap-badge.live{color:var(--dsw-alias-state-success-primary,#216744);background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#216744) 14%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary,#216744) 34%,transparent)}
-.reqmap-badge.open{color:var(--dsw-alias-state-warn-primary,#9a5b00);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#9a5b00) 14%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#9a5b00) 34%,transparent)}
+.reqmap-badge{flex:none;display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:999px;font-size:10.5px;line-height:1.6;white-space:nowrap;border:1px solid transparent}
+.reqmap-badge::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex:none}
+.reqmap-badge.live{color:var(--dsw-alias-state-success-primary,#216744);background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#216744) 13%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary,#216744) 30%,transparent)}
+.reqmap-badge.open{color:var(--dsw-alias-state-warn-primary,#9a5b00);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#9a5b00) 13%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#9a5b00) 30%,transparent)}
 .reqmap-badge.hold{color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-interactive-bg-hover);border-color:var(--dsw-alias-border-l2)}
-.reqmap-badge.done{color:var(--dsw-alias-state-business-primary,#2457c5);background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2457c5) 12%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2457c5) 30%,transparent)}
+.reqmap-badge.done{color:var(--dsw-alias-state-business-primary,#2457c5);background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2457c5) 12%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2457c5) 28%,transparent)}
 .reqmap-compare{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:2px 10px 8px}
 .reqmap-compare.single{grid-template-columns:1fr}
-.reqmap-version{padding:7px 10px;border-left:3px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);border-radius:0 5px 5px 0}
-.reqmap-version strong{display:block;margin-bottom:2px;font-size:11px;font-weight:600}
-.reqmap-version p{margin:0;white-space:pre-wrap;word-break:break-word}
-.reqmap-current{border-left-color:var(--dsw-alias-state-success-primary,#216744)}
+.reqmap-version{padding:7px 10px;border-radius:0 6px 6px 0;background:var(--dsw-alias-bg-layer-2)}
+.reqmap-version strong{display:block;margin-bottom:2px;font-size:10.5px;font-weight:600}
+.reqmap-version p{margin:0;white-space:pre-wrap;word-break:break-word;font-size:12.5px}
+.reqmap-current{border-left:3px solid var(--dsw-alias-state-success-primary,#216744);background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#216744) 7%,var(--dsw-alias-bg-layer-2))}
 .reqmap-current strong{color:var(--dsw-alias-state-success-primary,#216744)}
-.reqmap-old{border-left-color:var(--dsw-alias-state-error-primary,#a33f3f)}
+.reqmap-old{border-left:3px solid var(--dsw-alias-state-error-primary,#a33f3f);background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#a33f3f) 6%,var(--dsw-alias-bg-layer-2))}
 .reqmap-old strong{color:var(--dsw-alias-state-error-primary,#a33f3f)}
 .reqmap-hide-old .reqmap-old{display:none}
 .reqmap-hide-old .reqmap-compare{grid-template-columns:1fr}
-.reqmap-notes{padding:0 10px 9px;color:var(--dsw-alias-label-secondary);font-size:12px}
+.reqmap-notes{padding:0 10px 9px;color:var(--dsw-alias-label-secondary);font-size:11.5px}
 .reqmap-notes p{margin:2px 0}
-.reqmap-source{word-break:break-all}
-.reqmap-empty{padding:28px 12px;text-align:center;color:var(--dsw-alias-label-tertiary)}
-.reqmap-error{margin:16px 20px;padding:10px 12px;border-radius:6px;color:var(--dsw-alias-state-error-primary,#a33f3f);background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#a33f3f) 10%,transparent);border:1px solid color-mix(in srgb,var(--dsw-alias-state-error-primary,#a33f3f) 30%,transparent);white-space:pre-wrap;word-break:break-word}
-.reqmap-foot{padding:10px 20px 16px;border-top:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-tertiary);font-size:12px}
-.reqmap-foot p{margin:3px 0}
+.reqmap-source{word-break:break-all;color:var(--dsw-alias-label-tertiary)}
+.reqmap-empty{padding:26px 12px;text-align:center;color:var(--dsw-alias-label-tertiary)}
 .reqmap-generate{margin:10px 0 6px;padding:8px 18px;font-size:13px}
-.reqmap-notice{margin:8px 0 0;color:var(--dsw-alias-state-business-primary,#2457c5);font-size:12px}
-.reqmap-hint{margin:6px 0 0;color:var(--dsw-alias-label-tertiary);font-size:12px}
+.reqmap-notice{margin:8px 16px 0;color:var(--dsw-alias-state-business-primary,#2457c5);font-size:12px}
+.reqmap-hint{margin:6px 0 0;color:var(--dsw-alias-label-tertiary);font-size:11.5px}
+.reqmap-error{margin:14px 16px;padding:10px 12px;border-radius:7px;color:var(--dsw-alias-state-error-primary,#a33f3f);background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#a33f3f) 9%,transparent);border:1px solid color-mix(in srgb,var(--dsw-alias-state-error-primary,#a33f3f) 28%,transparent);white-space:pre-wrap;word-break:break-word;font-size:12px}
+.reqmap-foot{padding:10px 16px 16px;border-top:1px solid var(--dsw-alias-border-l2);color:var(--dsw-alias-label-tertiary);font-size:11.5px}
+.reqmap-foot p{margin:3px 0}
 .reqmap-header-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--dsw-alias-label-secondary);cursor:pointer}
 .reqmap-header-btn:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
 .reqmap-header-btn:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
-@media (max-width:720px){.reqmap-grid{grid-template-columns:1fr}.reqmap-compare{grid-template-columns:1fr}.reqmap-input{width:100%}}
+@media (prefers-reduced-motion:reduce){.reqmap-collapse{transition:none}.reqmap-caret{transition:none}.reqmap-req{transition:none}}
+@media (max-width:720px){.reqmap-grid{grid-template-columns:1fr}.reqmap-compare{grid-template-columns:1fr}.reqmap-input{width:100%}.reqmap-toolbar{padding:8px 12px}.reqmap-main{padding:14px 12px 24px}}
+@media print{.reqmap-collapse{grid-template-rows:1fr !important;opacity:1 !important}.reqmap-toolbar,.reqmap-page-form{position:static;backdrop-filter:none}.reqmap-branch-head{position:static}}
 `
 
     // ── Ledger parsing ───────────────────────────────────────────────────
@@ -269,12 +286,32 @@ window.__ModuleLoader__.load({
 
     // ── Mind map ─────────────────────────────────────────────────────────
 
-    function RequirementMap({ data, t }) {
+    /** Soft accents that keep branch blocks distinguishable in both themes. */
+    const BRANCH_ACCENTS = ['#5b82f7', '#8b5cf6', '#14b8a6', '#f59e0b', '#f43f5e', '#6366f1']
+
+    function RequirementMap({ data, t, showHeader = true, embedded = false }) {
       const [query, setQuery] = React.useState('')
       const [filter, setFilter] = React.useState('all')
       const [showOld, setShowOld] = React.useState(true)
       const [openGroups, setOpenGroups] = React.useState(() => new Set())
       const [openReqs, setOpenReqs] = React.useState(() => new Set())
+      const useRef = React.useRef ?? ((value) => ({ current: value }))
+      const rootRef = useRef(null)
+      const toolbarRef = useRef(null)
+
+      // The toolbar is sticky and may wrap; publish its height so branch heads
+      // stick below it instead of sliding underneath.
+      React.useEffect(() => {
+        const root = rootRef.current
+        const toolbar = toolbarRef.current
+        if (!root || !toolbar) return undefined
+        const apply = () => root.style.setProperty('--reqmap-toolbar-h', `${toolbar.offsetHeight}px`)
+        apply()
+        if (typeof ResizeObserver === 'undefined') return undefined
+        const observer = new ResizeObserver(apply)
+        observer.observe(toolbar)
+        return () => observer.disconnect()
+      }, [])
 
       const { meta, rows } = data
       const statusNames = Object.keys(meta.statuses)
@@ -336,52 +373,58 @@ window.__ModuleLoader__.load({
         setOpenReqs(new Set())
       }
 
-      return h('div', { className: 'reqmap-root' },
+      const contextText = t('context', {
+        date: meta.date || '—',
+        branch: meta.branch || '—',
+        head: meta.head || '—',
+        count: String(rows.length),
+      })
+
+      return h('div', { className: 'reqmap-root' + (embedded ? ' reqmap-embedded' : ''), ref: rootRef },
         h('style', null, CSS),
-        h('header', { className: 'reqmap-head' },
-          h('h1', { className: 'reqmap-title' }, meta.title || t('page.title')),
-          h('p', { className: 'reqmap-context' }, t('context', {
-            date: meta.date || '—',
-            branch: meta.branch || '—',
-            head: meta.head || '—',
-            count: String(rows.length),
-          })),
-          h('p', { className: 'reqmap-context' }, t('legend.note')),
-        ),
-        h('div', { className: 'reqmap-toolbar' },
-          h('label', { className: 'reqmap-label', htmlFor: 'reqmap-search' }, t('search.label')),
-          h('input', {
-            id: 'reqmap-search',
-            className: 'reqmap-input',
-            type: 'search',
-            value: query,
-            placeholder: t('search.placeholder'),
-            onChange: (event) => setQuery(event.target.value),
-          }),
-          h('label', { className: 'reqmap-label', htmlFor: 'reqmap-filter' }, t('filter.label')),
-          h('select', {
-            id: 'reqmap-filter',
-            className: 'reqmap-select',
-            value: filter,
-            onChange: (event) => setFilter(event.target.value),
-          },
-            h('option', { value: 'all' }, t('filter.all')),
-            h('option', { value: '__unfinished__' }, t('filter.unfinished')),
-            statusNames.map((name) => h('option', { key: name, value: name }, name)),
+        showHeader
+          ? h('header', { className: 'reqmap-head' },
+            h('h1', { className: 'reqmap-title' }, meta.title || t('page.title')),
+            h('p', { className: 'reqmap-context' }, contextText),
+            h('p', { className: 'reqmap-context' }, t('legend.note')),
+          )
+          : null,
+        h('div', { className: 'reqmap-toolbar', ref: toolbarRef },
+          h('div', { className: 'reqmap-toolbar-group' },
+            h('input', {
+              className: 'reqmap-input',
+              type: 'search',
+              value: query,
+              placeholder: t('search.placeholder'),
+              'aria-label': t('search.label'),
+              onChange: (event) => setQuery(event.target.value),
+            }),
+            h('select', {
+              className: 'reqmap-select',
+              value: filter,
+              'aria-label': t('filter.label'),
+              onChange: (event) => setFilter(event.target.value),
+            },
+              h('option', { value: 'all' }, t('filter.all')),
+              h('option', { value: '__unfinished__' }, t('filter.unfinished')),
+              statusNames.map((name) => h('option', { key: name, value: name }, name)),
+            ),
           ),
-          h('button', { className: 'reqmap-btn', type: 'button', onClick: expandAll }, t('expand')),
-          h('button', { className: 'reqmap-btn', type: 'button', onClick: collapseAll }, t('collapse')),
-          h('button', {
-            className: 'reqmap-btn',
-            type: 'button',
-            'aria-pressed': String(showOld),
-            onClick: () => setShowOld((value) => !value),
-          }, showOld ? t('hideOld') : t('showOld')),
-          h('button', { className: 'reqmap-btn', type: 'button', onClick: () => window.print() }, t('print')),
-          h('span', { className: 'reqmap-counter' }, t('counter', {
-            shown: String(visible.length),
-            total: String(rows.length),
-          })),
+          h('div', { className: 'reqmap-toolbar-group reqmap-toolbar-right' },
+            h('button', { className: 'reqmap-btn', type: 'button', onClick: expandAll }, t('expand')),
+            h('button', { className: 'reqmap-btn', type: 'button', onClick: collapseAll }, t('collapse')),
+            h('button', {
+              className: 'reqmap-btn',
+              type: 'button',
+              'aria-pressed': String(showOld),
+              onClick: () => setShowOld((value) => !value),
+            }, showOld ? t('hideOld') : t('showOld')),
+            h('button', { className: 'reqmap-btn', type: 'button', onClick: () => window.print() }, t('print')),
+            h('span', { className: 'reqmap-counter', 'aria-live': 'polite' }, t('counter', {
+              shown: String(visible.length),
+              total: String(rows.length),
+            })),
+          ),
         ),
         h('div', { className: 'reqmap-legend' },
           h('span', { className: 'reqmap-legend-item reqmap-legend-current' }, t('legend.current')),
@@ -389,66 +432,78 @@ window.__ModuleLoader__.load({
         ),
         h('main', { className: 'reqmap-main' + (showOld ? '' : ' reqmap-hide-old') },
           h('div', { className: 'reqmap-grid' },
-            [...groupsByRoot].map(([root, groupMap]) => {
-              const rootCount = [...groupMap.values()].reduce((sum, list) => sum + list.length, 0)
-              if (rootCount === 0) return null
-              return h('section', { className: 'reqmap-branch', key: root },
+            [...groupsByRoot].map(([root, groupMap], branchIndex) => {
+              const rootRows = [...groupMap.values()].reduce((sum, list) => sum + list.length, 0)
+              if (rootRows === 0) return null
+              const accent = BRANCH_ACCENTS[branchIndex % BRANCH_ACCENTS.length]
+              return h('section', { className: 'reqmap-branch', key: root, style: { '--reqmap-accent': accent } },
                 h('div', { className: 'reqmap-branch-head' },
+                  h('span', { className: 'reqmap-branch-dot', 'aria-hidden': true }),
                   h('h2', { className: 'reqmap-branch-title' }, root),
-                  h('small', { className: 'reqmap-branch-count' }, rootCount + ' 项'),
+                  h('small', { className: 'reqmap-branch-count' }, rootRows + ' 项'),
                 ),
-                [...groupMap].map(([group, list]) => {
-                  const groupKey = root + '::' + group
-                  return h('details', { className: 'reqmap-group', key: groupKey, open: openGroups.has(groupKey) },
-                    h('summary', {
-                      className: 'reqmap-group-summary',
-                      onClick: (event) => {
-                        event.preventDefault()
-                        toggleGroup(groupKey)
+                h('div', { className: 'reqmap-groups' },
+                  [...groupMap].map(([group, list]) => {
+                    const groupKey = root + '::' + group
+                    const groupOpen = openGroups.has(groupKey)
+                    return h('div', { className: 'reqmap-group' + (groupOpen ? ' is-open' : ''), key: groupKey },
+                      h('button', {
+                        className: 'reqmap-group-summary',
+                        type: 'button',
+                        'aria-expanded': String(groupOpen),
+                        onClick: () => toggleGroup(groupKey),
                       },
-                    },
-                      h('span', { className: 'reqmap-group-name' }, group),
-                      h('span', { className: 'reqmap-group-count' }, String(list.length)),
-                    ),
-                    h('div', { className: 'reqmap-reqs' },
-                      list.map((row) => h('details', {
-                        className: 'reqmap-req',
-                        key: row.id,
-                        open: openReqs.has(row.id),
-                      },
-                        h('summary', {
-                          className: 'reqmap-req-summary',
-                          onClick: (event) => {
-                            event.preventDefault()
-                            toggleReq(row.id)
-                          },
-                        },
-                          h('span', { className: 'reqmap-rid' }, row.id + ' '),
-                          h('span', { className: 'reqmap-req-title' }, row.title),
-                          h('span', { className: 'reqmap-badge ' + statusTone(row.status) }, row.status),
-                        ),
-                        h('div', { className: 'reqmap-compare' + (row.old ? '' : ' single') },
-                          h('div', { className: 'reqmap-version reqmap-current' },
-                            h('strong', null, t('current')),
-                            h('p', null, row.current),
+                        h('span', { className: 'reqmap-caret', 'aria-hidden': true }, '▸'),
+                        h('span', { className: 'reqmap-group-name' }, group),
+                        h('span', { className: 'reqmap-group-count' }, String(list.length)),
+                      ),
+                      h('div', { className: 'reqmap-collapse', 'data-open': String(groupOpen) },
+                        h('div', { className: 'reqmap-collapse-inner' },
+                          h('div', { className: 'reqmap-reqs' },
+                            list.map((row) => {
+                              const reqOpen = openReqs.has(row.id)
+                              return h('div', { className: 'reqmap-req' + (reqOpen ? ' is-open' : ''), key: row.id },
+                                h('button', {
+                                  className: 'reqmap-req-summary',
+                                  type: 'button',
+                                  'aria-expanded': String(reqOpen),
+                                  onClick: () => toggleReq(row.id),
+                                },
+                                  h('span', { className: 'reqmap-caret', 'aria-hidden': true }, '▸'),
+                                  h('span', { className: 'reqmap-rid' }, row.id),
+                                  h('span', { className: 'reqmap-req-title' }, row.title),
+                                  h('span', { className: 'reqmap-badge ' + statusTone(row.status) }, row.status),
+                                ),
+                                h('div', { className: 'reqmap-collapse', 'data-open': String(reqOpen) },
+                                  h('div', { className: 'reqmap-collapse-inner' },
+                                    h('div', { className: 'reqmap-compare' + (row.old ? '' : ' single') },
+                                      h('div', { className: 'reqmap-version reqmap-current' },
+                                        h('strong', null, t('current')),
+                                        h('p', null, row.current),
+                                      ),
+                                      row.old
+                                        ? h('div', { className: 'reqmap-version reqmap-old' },
+                                          h('strong', null, t('old')),
+                                          h('p', null, row.old),
+                                        )
+                                        : null,
+                                    ),
+                                    (row.note || row.source)
+                                      ? h('div', { className: 'reqmap-notes' },
+                                        row.note ? h('p', { className: 'reqmap-note' }, t('note') + '：' + row.note) : null,
+                                        row.source ? h('p', { className: 'reqmap-source' }, t('source') + '：' + row.source) : null,
+                                      )
+                                      : null,
+                                  ),
+                                ),
+                              )
+                            }),
                           ),
-                          row.old
-                            ? h('div', { className: 'reqmap-version reqmap-old' },
-                              h('strong', null, t('old')),
-                              h('p', null, row.old),
-                            )
-                            : null,
                         ),
-                        (row.note || row.source)
-                          ? h('div', { className: 'reqmap-notes' },
-                            row.note ? h('p', { className: 'reqmap-note' }, t('note') + '：' + row.note) : null,
-                            row.source ? h('p', { className: 'reqmap-source' }, t('source') + '：' + row.source) : null,
-                          )
-                          : null,
-                      )),
-                    ),
-                  )
-                }),
+                      ),
+                    )
+                  }),
+                ),
               )
             }),
           ),
@@ -460,6 +515,8 @@ window.__ModuleLoader__.load({
         ),
       )
     }
+
+
 
     // ── Document preview ─────────────────────────────────────────────────
 
@@ -692,12 +749,19 @@ window.__ModuleLoader__.load({
 
       return h('div', { className: 'reqmap-page' },
         h('style', null, CSS),
-        compact
-          ? null
-          : h('header', { className: 'reqmap-head' },
-            h('h1', { className: 'reqmap-title' }, t('page.title')),
-            h('p', { className: 'reqmap-context' }, t('page.subtitle')),
-          ),
+        h('header', { className: 'reqmap-head reqmap-head-compact' },
+          h('h1', { className: 'reqmap-title' },
+            state.kind === 'ok' && state.data?.meta?.title ? state.data.meta.title : t('page.title')),
+          h('p', { className: 'reqmap-context' },
+            state.kind === 'ok'
+              ? t('context', {
+                date: state.data?.meta?.date || '—',
+                branch: state.data?.meta?.branch || '—',
+                head: state.data?.meta?.head || '—',
+                count: String(state.data?.rows?.length ?? 0),
+              })
+              : t('page.subtitle')),
+        ),
         h('div', { className: 'reqmap-page-form' },
           !fixedSessionId && sessions.length > 1 ? h('label', { className: 'reqmap-label', htmlFor: 'reqmap-session' }, t('page.session')) : null,
           !fixedSessionId && sessions.length > 1
@@ -711,7 +775,6 @@ window.__ModuleLoader__.load({
               },
             }, sessions.map((session) => h('option', { key: session.id, value: session.id }, session.label)))
             : null,
-          projects.length > 1 ? h('label', { className: 'reqmap-label', htmlFor: 'reqmap-project' }, t('page.project')) : null,
           projects.length > 1
             ? h('select', {
               id: 'reqmap-project',
@@ -724,12 +787,12 @@ window.__ModuleLoader__.load({
             }, projects.map((item) => h('option', { key: item.path, value: item.path }, item.name || item.path)))
             : null,
           h('button', {
-            className: 'reqmap-btn',
+            className: 'reqmap-btn reqmap-btn-soft',
             type: 'button',
             onClick: () => setToken((value) => value + 1),
           }, t('page.rescan')),
           h('button', {
-            className: 'reqmap-btn',
+            className: 'reqmap-btn reqmap-btn-soft',
             type: 'button',
             onClick: () => setToken((value) => value + 1),
           }, t('page.reload')),
@@ -773,7 +836,7 @@ window.__ModuleLoader__.load({
             : null,
           state.kind === 'loading' ? h('p', { className: 'reqmap-empty' }, t('page.loading')) : null,
           state.kind === 'error' ? h('div', { className: 'reqmap-error' }, t('page.error') + '：' + state.message) : null,
-          state.kind === 'ok' ? h(RequirementMap, { data: state.data, t }) : null,
+          state.kind === 'ok' ? h(RequirementMap, { data: state.data, t, showHeader: false, embedded: true }) : null,
           notice && state.kind !== 'none' ? h('p', { className: 'reqmap-notice' }, notice) : null,
           running && state.kind !== 'none' ? h('p', { className: 'reqmap-notice' }, t('page.generating')) : null,
         ),

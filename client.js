@@ -733,7 +733,7 @@ window.__ModuleLoader__.load({
         }
         let cancelled = false
         setState((previous) => (previous.kind === 'ok' ? previous : { kind: 'discovering' }))
-        searchLedgers(sessionId)
+        searchLedgers(sessionId, project)
           .then((found) => {
             if (cancelled) return
             setLedgers(found)
@@ -742,7 +742,7 @@ window.__ModuleLoader__.load({
             if (!cancelled) setState({ kind: 'error', message: String(error?.message ?? error) })
           })
         return () => { cancelled = true }
-      }, [sessionId, token])
+      }, [sessionId, token, project])
 
       // One project owns its ledgers: the workspace list is narrowed to the
       // selected project, so the ledger can never drift to another project.
@@ -1069,8 +1069,39 @@ window.__ModuleLoader__.load({
       }
 
       /** Find requirement ledgers in one session's workspace, validated by schema. */
-      const searchLedgers = async (sessionId) => {
+      /**
+       * List the `.json` children of one directory.
+       *
+       * Directory listing is not filtered by `.gitignore`, unlike `search`, so a
+       * generated ledger stays visible even when the project ignores
+       * `docs/requirements/`.
+       */
+      const listJsonChildren = async (sessionId, dir) => {
+        try {
+          const result = await ctx.remote.workspaceFiles.list(sessionId, dir)
+          if (!result?.ok) return []
+          const base = String(result.value?.path ?? '').replace(/\/+$/u, '')
+          return (result.value?.entries ?? [])
+            .filter((entry) => entry.type === 'file' && /\.json$/i.test(entry.name))
+            .map((entry) => (base ? base + '/' + entry.name : entry.name))
+        } catch {
+          return []
+        }
+      }
+
+      const searchLedgers = async (sessionId, project) => {
         const candidates = new Set()
+        // Listing comes first: it sees generated ledgers that a project's
+        // .gitignore hides from the pattern search.
+        if (project) {
+          const dirs = project === '.' ? ['.', 'docs/requirements'] : [project, project + '/docs/requirements']
+          for (const dir of dirs) {
+            for (const path of await listJsonChildren(sessionId, dir)) {
+              candidates.add(path)
+              if (candidates.size >= SCAN_MAX_CANDIDATES) break
+            }
+          }
+        }
         for (const query of SCAN_QUERIES) {
           let result
           try {

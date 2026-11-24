@@ -191,7 +191,7 @@ window.__ModuleLoader__.load({
 .reqmap-branch-title{margin:0;font-size:13.5px;font-weight:650;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .reqmap-branch-count{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .reqmap-groups{display:flex;flex-direction:column;gap:7px}
-.reqmap-group{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-2);overflow:hidden;transition:border-color .15s ease,box-shadow .15s ease}
+.reqmap-group{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-2);overflow:hidden;transition:border-color 180ms ease,box-shadow 200ms ease,background-color 200ms ease}
 .reqmap-group.is-open{border-color:color-mix(in srgb,var(--reqmap-accent) 30%,var(--dsw-alias-border-l2))}
 .reqmap-group-summary,.reqmap-req-summary{display:flex;align-items:center;gap:8px;width:100%;padding:8px 11px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .reqmap-group-summary{font-weight:560}
@@ -207,7 +207,7 @@ window.__ModuleLoader__.load({
 .reqmap-req{border:1px solid var(--dsw-alias-border-l2);border-radius:7px;background:var(--dsw-alias-bg-layer-1);transition:border-color 160ms ease,box-shadow 200ms ease,transform 200ms cubic-bezier(.2,.7,.3,1),background-color 200ms ease}
 .reqmap-req:hover{border-color:color-mix(in srgb,var(--reqmap-accent) 26%,var(--dsw-alias-border-l2));box-shadow:0 1px 6px rgba(16,24,40,.06);transform:translateY(-1px)}
 .reqmap-req.is-open:hover{transform:none}
-.reqmap-req[data-preview="true"]{border-color:color-mix(in srgb,var(--reqmap-accent) 30%,var(--dsw-alias-border-l2));box-shadow:0 3px 14px rgba(16,24,40,.07)}
+.reqmap-req[data-preview="true"],.reqmap-group[data-preview="true"]{border-color:color-mix(in srgb,var(--reqmap-accent) 30%,var(--dsw-alias-border-l2));box-shadow:0 3px 14px rgba(16,24,40,.07)}
 .reqmap-req-summary,.reqmap-group-summary{border-radius:6px;transition:background-color 160ms ease}
 .reqmap-req-summary:hover,.reqmap-group-summary:hover{background:color-mix(in srgb,var(--reqmap-accent) 5%,transparent)}
 .reqmap-req.is-open{background:color-mix(in srgb,var(--reqmap-accent) 4%,var(--dsw-alias-bg-layer-1))}
@@ -349,11 +349,29 @@ window.__ModuleLoader__.load({
         return map
       }, [visible, meta.roots])
 
-      // Hover previews a requirement; clicking pins it open.
+      // Hover previews a group or a requirement; clicking pins it open.
+      const [hoverGroup, setHoverGroup] = React.useState('')
       const [hoverReq, setHoverReq] = React.useState('')
       const hoverTimer = useRef(0)
-      React.useEffect(() => () => clearTimeout(hoverTimer.current), [])
-      React.useEffect(() => { setHoverReq('') }, [query, filter])
+      const groupTimer = useRef(0)
+      React.useEffect(() => () => {
+        clearTimeout(hoverTimer.current)
+        clearTimeout(groupTimer.current)
+      }, [])
+      React.useEffect(() => {
+        setHoverGroup('')
+        setHoverReq('')
+      }, [query, filter])
+      const previewGroup = (key) => {
+        clearTimeout(groupTimer.current)
+        groupTimer.current = setTimeout(() => setHoverGroup(key), 50)
+      }
+      const unpreviewGroup = (key) => {
+        clearTimeout(groupTimer.current)
+        groupTimer.current = setTimeout(() => {
+          setHoverGroup((current) => (current === key ? '' : current))
+        }, 280)
+      }
       const previewReq = (id) => {
         clearTimeout(hoverTimer.current)
         hoverTimer.current = setTimeout(() => setHoverReq(id), 40)
@@ -391,6 +409,8 @@ window.__ModuleLoader__.load({
       }
       const collapseAll = () => {
         clearTimeout(hoverTimer.current)
+        clearTimeout(groupTimer.current)
+        setHoverGroup('')
         setHoverReq('')
         setOpenGroups(new Set())
         setOpenReqs(new Set())
@@ -468,13 +488,25 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'reqmap-groups' },
                   [...groupMap].map(([group, list]) => {
                     const groupKey = root + '::' + group
-                    const groupOpen = openGroups.has(groupKey)
-                    return h('div', { className: 'reqmap-group' + (groupOpen ? ' is-open' : ''), key: groupKey },
+                    const groupPinned = openGroups.has(groupKey)
+                    const groupPreviewed = !groupPinned && hoverGroup === groupKey
+                    const groupOpen = groupPinned || groupPreviewed
+                    return h('div', {
+                      className: 'reqmap-group' + (groupOpen ? ' is-open' : ''),
+                      key: groupKey,
+                      'data-preview': String(groupPreviewed),
+                      onMouseEnter: () => previewGroup(groupKey),
+                      onMouseLeave: () => unpreviewGroup(groupKey),
+                    },
                       h('button', {
                         className: 'reqmap-group-summary',
                         type: 'button',
-                        'aria-expanded': String(groupOpen),
-                        onClick: () => toggleGroup(groupKey),
+                        'aria-expanded': String(groupPinned),
+                        onClick: () => {
+                          clearTimeout(groupTimer.current)
+                          setHoverGroup('')
+                          toggleGroup(groupKey)
+                        },
                       },
                         h('span', { className: 'reqmap-caret', 'aria-hidden': true }, '▸'),
                         h('span', { className: 'reqmap-group-name' }, group),

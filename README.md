@@ -7,6 +7,7 @@
 **右侧栏标签页**（边写代码边看，可拖拽、可全屏）：
 
 <img src="docs/preview-sidebar.gif" alt="右侧栏需求导图：悬停分组自动展开，悬停需求展开当前/旧要求对比" width="620">
+![Uploading image.png…]()
 
 **独立页面**（全屏浏览，多项目切换）：
 

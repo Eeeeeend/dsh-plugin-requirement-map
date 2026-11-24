@@ -1,0 +1,5 @@
+# Requirement mind map: a document preview for *.reqmap.json ledgers plus a
+# global "Requirement map" page in the sidebar panel list.
+- insert:
+    - id: requirement-map
+      name: 'dsh-plugin-requirement-map'

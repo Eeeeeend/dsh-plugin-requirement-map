@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Requirement map",
+    "description": "Renders a *.reqmap.json requirement ledger as an interactive mind map with search, status filters, and current/old comparison, in the sidebar preview or a dedicated page.",
+    "detail": "docs/DETAIL.md"
+  }
+}

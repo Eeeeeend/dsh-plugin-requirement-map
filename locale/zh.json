@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "需求导图",
+    "description": "把 *.reqmap.json 需求台账渲染成交互式思维导图：搜索、状态筛选、当前/旧要求对照，并可在侧边栏或独立页面查看。",
+    "detail": "docs/DETAIL.md"
+  }
+}

@@ -195,18 +195,21 @@ window.__ModuleLoader__.load({
 .reqmap-group.is-open{border-color:color-mix(in srgb,var(--reqmap-accent) 30%,var(--dsw-alias-border-l2))}
 .reqmap-group-summary,.reqmap-req-summary{display:flex;align-items:center;gap:8px;width:100%;padding:8px 11px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .reqmap-group-summary{font-weight:560}
-.reqmap-caret{display:inline-block;width:10px;flex:none;color:var(--dsw-alias-label-tertiary);font-size:10px;transition:transform .18s ease}
+.reqmap-caret{display:inline-block;width:10px;flex:none;color:var(--dsw-alias-label-tertiary);font-size:10px;transition:transform 240ms cubic-bezier(.34,1.4,.64,1)}
 .is-open>.reqmap-group-summary>.reqmap-caret,.is-open>.reqmap-req-summary>.reqmap-caret{transform:rotate(90deg)}
 .reqmap-group-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .reqmap-group-count{color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums}
-.reqmap-collapse{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .2s cubic-bezier(.2,.7,.3,1),opacity .18s ease}
+.reqmap-collapse{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows 280ms cubic-bezier(.16,1,.3,1),opacity 200ms ease}
 .reqmap-collapse[data-open="true"]{grid-template-rows:1fr;opacity:1}
-.reqmap-collapse-inner{overflow:hidden;min-height:0}
+.reqmap-collapse-inner{overflow:hidden;min-height:0;transform:translateY(-6px);transition:transform 280ms cubic-bezier(.16,1,.3,1)}
+.reqmap-collapse[data-open="true"]>.reqmap-collapse-inner{transform:translateY(0)}
 .reqmap-reqs{display:flex;flex-direction:column;gap:6px;padding:2px 8px 8px 14px}
-.reqmap-req{border:1px solid var(--dsw-alias-border-l2);border-radius:7px;background:var(--dsw-alias-bg-layer-1);transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
+.reqmap-req{border:1px solid var(--dsw-alias-border-l2);border-radius:7px;background:var(--dsw-alias-bg-layer-1);transition:border-color 160ms ease,box-shadow 200ms ease,transform 200ms cubic-bezier(.2,.7,.3,1),background-color 200ms ease}
 .reqmap-req:hover{border-color:color-mix(in srgb,var(--reqmap-accent) 26%,var(--dsw-alias-border-l2));box-shadow:0 1px 6px rgba(16,24,40,.06);transform:translateY(-1px)}
 .reqmap-req.is-open:hover{transform:none}
-.reqmap-req[data-preview="true"]{border-color:color-mix(in srgb,var(--reqmap-accent) 34%,var(--dsw-alias-border-l2));box-shadow:0 2px 10px rgba(16,24,40,.08)}
+.reqmap-req[data-preview="true"]{border-color:color-mix(in srgb,var(--reqmap-accent) 30%,var(--dsw-alias-border-l2));box-shadow:0 3px 14px rgba(16,24,40,.07)}
+.reqmap-req-summary,.reqmap-group-summary{border-radius:6px;transition:background-color 160ms ease}
+.reqmap-req-summary:hover,.reqmap-group-summary:hover{background:color-mix(in srgb,var(--reqmap-accent) 5%,transparent)}
 .reqmap-req.is-open{background:color-mix(in srgb,var(--reqmap-accent) 4%,var(--dsw-alias-bg-layer-1))}
 .reqmap-req-summary{padding:7px 10px}
 .reqmap-rid{font-family:var(--dsw-font-mono,ui-monospace,monospace);color:var(--dsw-alias-label-tertiary);font-size:10.5px;white-space:nowrap;flex:none}
@@ -353,13 +356,13 @@ window.__ModuleLoader__.load({
       React.useEffect(() => { setHoverReq('') }, [query, filter])
       const previewReq = (id) => {
         clearTimeout(hoverTimer.current)
-        hoverTimer.current = setTimeout(() => setHoverReq(id), 110)
+        hoverTimer.current = setTimeout(() => setHoverReq(id), 40)
       }
       const unpreviewReq = (id) => {
         clearTimeout(hoverTimer.current)
         hoverTimer.current = setTimeout(() => {
           setHoverReq((current) => (current === id ? '' : current))
-        }, 150)
+        }, 260)
       }
 
       const toggleGroup = (key) => setOpenGroups((previous) => {

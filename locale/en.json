@@ -3,5 +3,7 @@
     "title": "Requirement map",
     "description": "Render a project requirement ledger as an interactive mind map with auto-discovery, background generation, hover preview, and inline status editing.",
     "detail": "docs/DETAIL.md"
-  }
+  },
+  "page.merged": "Merged: {added} added, {updated} updated ({count} total; previous ledger backed up)",
+  "page.unchanged": "No new requirement changes; the ledger was left untouched"
 }

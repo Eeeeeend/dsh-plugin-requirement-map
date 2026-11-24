@@ -896,7 +896,15 @@ window.__ModuleLoader__.load({
 
       const running = job.state === 'running'
       const notice = job.state === 'done'
-        ? t('page.generated', { count: String(job.result?.count ?? 0), path: job.result?.path ?? '', project: job.result?.project ?? '' })
+        ? (job.result?.unchanged
+          ? t('page.unchanged')
+          : job.result?.mode === 'merge'
+            ? t('page.merged', {
+              added: String(job.result?.added ?? 0),
+              updated: String(job.result?.updated ?? 0),
+              count: String(job.result?.count ?? 0),
+            })
+            : t('page.generated', { count: String(job.result?.count ?? 0), path: job.result?.path ?? '', project: job.result?.project ?? '' }))
         : job.state === 'error'
           ? t('page.generateFailed') + '：' + (job.error ?? '')
           : job.state === 'cancelled'

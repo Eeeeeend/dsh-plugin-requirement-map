@@ -499,6 +499,128 @@ export async function listProjects(ctx, options = {}) {
  * @param options - session identity, target path, and cancellation.
  * @returns the written path and requirement count.
  */
+/**
+ * Build the merge prompt: existing rows are context, the session is the source.
+ *
+ * The model only ever returns a delta, so a bad answer can add or reword a row
+ * but can never drop one.
+ */
+function buildMergePrompt(userMessages, existing, targetPath, projectLabel) {
+  const rows = existing.requirements.map(
+    (row) => `- ${row.id} | ${row.root} / ${row.group} | ${row.title} | ${row.current}`,
+  )
+  return [
+    `项目根目录：${projectLabel}`,
+    '',
+    `现有台账（${existing.requirements.length} 条，已经存在，禁止删除、禁止改写无关条目）：`,
+    ...rows,
+    '',
+    '以下是用户在本会话中提出的功能要求（按时间顺序）：',
+    ...userMessages.map((text, index) => `--- 用户要求 ${index + 1} ---\n${text}`),
+    '',
+    '-----',
+    '任务：找出「用户要求」里现有台账**尚未记录**的新需求，以及**口径已经变化**的现有需求。',
+    `目标路径（仅作记录）：${targetPath}`,
+    '',
+    '硬性要求：',
+    '1. 只输出增量。现有台账里已经记录过的需求，不要再输出一遍。',
+    '2. 绝不删除、绝不重排现有条目；没有变化的条目不要输出。',
+    '3. additions 是全新需求；updates 只放 id 已存在、且 current 确实需要改写的条目。',
+    '4. 只记录用户明确要求过的功能、行为、数据口径与方向变更；不要记录实现过程、代码结构、工具设计、测试方案、文档维护、发布流程。',
+    '5. 如果没有任何新增或变更，输出 {"additions":[],"updates":[]}。',
+    '6. status 只能取现有台账 statuses 的键；新增条目没把握时用「未完成」。',
+    '',
+    '你的整个回复必须是一个 JSON 对象，第一个字符是 {，最后一个字符是 }。',
+    '不要复述任务，不要分析，不要解释，不要代码围栏。',
+    '',
+    '结构：',
+    '{"additions":[{"root":string,"group":string,"title":string,"current":string,"status":string,"source":string,"note":string}],"updates":[{"id":string,"current":string,"note":string}]}',
+  ].join('\n')
+}
+
+/**
+ * Merge a model delta into an existing ledger without ever losing a row.
+ *
+ * Additions are deduplicated by title and given the next free id in their root;
+ * updates only reword a row that already exists, moving the previous wording
+ * into `old`. A model that answers with a full ledger instead of a delta is
+ * treated as additions only, so hand-tuned wording is never rewritten.
+ */
+function mergeLedger(existing, payload) {
+  const ledger = JSON.parse(JSON.stringify(existing))
+  const normalize = (value) => String(value ?? '').replace(/\s+/gu, '').toLowerCase()
+  const byId = new Map(ledger.requirements.map((row) => [row.id, row]))
+  const titles = new Set(ledger.requirements.map((row) => normalize(row.title)))
+  const statusNames = Object.keys(ledger.meta.statuses ?? {})
+  let added = 0
+  let updated = 0
+
+  const allocate = (root) => {
+    const prefix = ledger.requirements.find((row) => row.root === root)?.id.split('-')[0] || 'REQ'
+    const pattern = new RegExp(`^${prefix}-(\\d+)$`, 'u')
+    let max = 0
+    for (const row of ledger.requirements) {
+      const match = pattern.exec(row.id)
+      if (match) max = Math.max(max, Number(match[1]))
+    }
+    let next = max + 1
+    let id = `${prefix}-${String(next).padStart(2, '0')}`
+    while (byId.has(id)) {
+      next += 1
+      id = `${prefix}-${String(next).padStart(2, '0')}`
+    }
+    return id
+  }
+
+  const addRow = (raw) => {
+    const title = String(raw?.title ?? '').trim()
+    if (!title || titles.has(normalize(title))) return
+    const root = String(raw?.root ?? '').trim() || ledger.meta.roots[0] || '未分类'
+    if (!ledger.meta.roots.includes(root)) ledger.meta.roots.push(root)
+    const id = allocate(root)
+    const row = {
+      id,
+      root,
+      group: String(raw?.group ?? '').trim() || '未分组',
+      title,
+      current: String(raw?.current ?? ''),
+      old: String(raw?.old ?? ''),
+      status: statusNames.includes(raw?.status) ? raw.status : (statusNames[0] ?? '未完成'),
+      source: String(raw?.source ?? '会话用户要求'),
+      note: String(raw?.note ?? ''),
+    }
+    ledger.requirements.push(row)
+    byId.set(id, row)
+    titles.add(normalize(title))
+    added += 1
+  }
+
+  const applyUpdate = (raw) => {
+    const row = byId.get(String(raw?.id ?? '').trim())
+    if (!row) return
+    const current = String(raw?.current ?? '').trim()
+    if (current && current !== row.current) {
+      row.old = row.current
+      row.current = current
+      updated += 1
+    }
+    const note = String(raw?.note ?? '').trim()
+    if (note && !row.note) row.note = note
+  }
+
+  if (Array.isArray(payload?.additions) || Array.isArray(payload?.updates)) {
+    for (const raw of Array.isArray(payload?.additions) ? payload.additions : []) addRow(raw)
+    for (const raw of Array.isArray(payload?.updates) ? payload.updates : []) applyUpdate(raw)
+  } else if (Array.isArray(payload?.requirements)) {
+    // Full-ledger answer: keep every existing row verbatim, append what is new.
+    for (const raw of payload.requirements) {
+      if (!byId.has(String(raw?.id ?? '').trim())) addRow(raw)
+    }
+  }
+
+  return { ledger, added, updated }
+}
+
 export async function generateLedger(ctx, options) {
   const { sessionId, path, signal } = options
   const llm = ctx.get('llm')
@@ -529,12 +651,28 @@ export async function generateLedger(ctx, options) {
   // Write inside the project so two projects never overwrite the same file.
   const absoluteTarget = resolve(project.root, targetPath)
 
+  // An existing ledger is never replaced: generation only adds what the session
+  // recorded and rewrites wording that genuinely changed.
+  let existing = null
+  let originalText = ''
+  try {
+    originalText = await readFile(absoluteTarget, 'utf8')
+    const parsed = JSON.parse(originalText)
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.requirements)) {
+      existing = normalizeLedger(parsed)
+    }
+  } catch {
+    existing = null
+  }
+
   // Prefer what the person actually asked for in this Session; fall back to the
   // repository's own requirement documents when the Session has no such prompts.
   const userMessages = collectUserMessages(ctx, sessionId)
   let docs = []
   let basePrompt
-  if (userMessages.length > 0) {
+  if (existing) {
+    basePrompt = buildMergePrompt(userMessages, existing, targetPath, projectLabel)
+  } else if (userMessages.length > 0) {
     basePrompt = buildSessionPrompt(userMessages, targetPath, projectLabel)
   } else {
     docs = await collectDocs(project.root)
@@ -551,18 +689,57 @@ export async function generateLedger(ctx, options) {
     // A reasoning model can put the whole answer in reasoning and leave text empty.
     const raw = text.trim().length > 0 ? text : reasoning
     try {
-      const ledger = normalizeLedger(extractJson(raw))
-      if (ledger.requirements.length === 0) throw new Error('the model extracted no requirements')
+      const payload = extractJson(raw)
+      let ledger
+      let added = 0
+      let updated = 0
+      if (existing) {
+        const merged = mergeLedger(existing, payload)
+        ledger = merged.ledger
+        added = merged.added
+        updated = merged.updated
+        // Nothing new: leave the file untouched rather than rewriting it.
+        if (added === 0 && updated === 0) {
+          return {
+            ok: true,
+            unchanged: true,
+            mode: 'merge',
+            path: targetPath,
+            absolutePath: absoluteTarget,
+            project: projectLabel,
+            projectReason: project.reason,
+            alternatives: project.alternatives?.map((item) => relative(root, item).split('\\').join('/')) ?? [],
+            count: ledger.requirements.length,
+            added,
+            updated,
+            source: userMessages.length > 0 ? 'session' : 'documents',
+            messages: userMessages.length,
+            docs: docs.length,
+            attempts: attempt,
+          }
+        }
+      } else {
+        ledger = normalizeLedger(payload)
+        if (ledger.requirements.length === 0) throw new Error('the model extracted no requirements')
+      }
       await mkdir(dirname(absoluteTarget), { recursive: true })
+      if (existing && originalText) {
+        // Keep the pre-merge wording next to the ledger, never in place of it.
+        const stamp = new Date().toISOString().replace(/[:.]/gu, '-').slice(0, 19)
+        await writeFile(`${absoluteTarget}.bak-${stamp}`, originalText, 'utf8')
+      }
       await writeFile(absoluteTarget, `${JSON.stringify(ledger, null, 2)}\n`, 'utf8')
       return {
         ok: true,
+        mode: existing ? 'merge' : 'create',
         path: targetPath,
         absolutePath: absoluteTarget,
         project: projectLabel,
         projectReason: project.reason,
         alternatives: project.alternatives?.map((item) => relative(root, item).split('\\').join('/')) ?? [],
         count: ledger.requirements.length,
+        added,
+        updated,
         source: userMessages.length > 0 ? 'session' : 'documents',
         messages: userMessages.length,
         docs: docs.length,

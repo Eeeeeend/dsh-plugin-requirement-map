@@ -20,6 +20,8 @@ window.__ModuleLoader__.load({
   factory: (require) => {
     const React = require('react')
     const h = React.createElement
+    /** Hook shim so a minimal render harness without useRef still works. */
+    const useRef = React.useRef ?? ((value) => ({ current: value }))
     const module = { exports: {} }
     const exports = module.exports
 
@@ -193,16 +195,19 @@ window.__ModuleLoader__.load({
 .reqmap-page-body{flex:1;overflow:auto;padding:0}
 .reqmap-page-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1)}
 .reqmap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;align-items:start}
-.reqmap-branch{min-width:0;--reqmap-accent:var(--dsw-alias-state-business-primary,#2457c5)}
-.reqmap-branch-head{position:sticky;top:calc(var(--reqmap-toolbar-h,46px) + 6px);z-index:3;display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:8px 12px;border:1px solid color-mix(in srgb,var(--reqmap-accent) 28%,var(--dsw-alias-border-l2));border-left:3px solid var(--reqmap-accent);border-radius:8px;background:color-mix(in srgb,var(--reqmap-accent) 10%,var(--dsw-alias-bg-layer-1));backdrop-filter:blur(8px)}
+.reqmap-branch{min-width:0;--reqmap-accent:var(--dsw-alias-state-business-primary,#2457c5);border:1px solid color-mix(in srgb,var(--reqmap-accent) 16%,var(--dsw-alias-border-l2));border-radius:10px;background:color-mix(in srgb,var(--reqmap-accent) 4%,var(--dsw-alias-bg-layer-1));padding-bottom:6px}
+.reqmap-branch-head{position:sticky;top:calc(var(--reqmap-toolbar-h,46px) + 6px);z-index:3;display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid color-mix(in srgb,var(--reqmap-accent) 18%,var(--dsw-alias-border-l2));border-radius:9px 9px 0 0;background:color-mix(in srgb,var(--reqmap-accent) 9%,var(--dsw-alias-bg-layer-1))}
 .reqmap-branch-dot{width:7px;height:7px;border-radius:50%;background:var(--reqmap-accent);flex:none}
 .reqmap-branch-title{margin:0;font-size:13.5px;font-weight:650;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .reqmap-branch-count{color:var(--dsw-alias-label-tertiary);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
-.reqmap-groups{display:flex;flex-direction:column;gap:7px}
-.reqmap-group{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;background:var(--dsw-alias-bg-layer-2);overflow:hidden;transition:border-color 180ms ease,box-shadow 200ms ease,background-color 200ms ease}
-.reqmap-group.is-open{border-color:color-mix(in srgb,var(--reqmap-accent) 30%,var(--dsw-alias-border-l2))}
+.reqmap-groups{position:relative;display:flex;flex-direction:column;gap:2px;padding:3px 8px 2px 12px;margin-top:3px}
+.reqmap-groups::before{content:"";position:absolute;left:9px;top:2px;bottom:10px;width:1px;background:color-mix(in srgb,var(--reqmap-accent) 26%,transparent)}
+.reqmap-group{position:relative;border:0;border-radius:7px;background:transparent;overflow:hidden;transition:background-color 180ms ease,box-shadow 200ms ease}
+.reqmap-group+.reqmap-group{border-top:1px solid color-mix(in srgb,var(--reqmap-accent) 12%,var(--dsw-alias-border-l2))}
+.reqmap-group-summary::before{content:"";position:absolute;left:-9px;top:50%;width:7px;height:1px;background:color-mix(in srgb,var(--reqmap-accent) 40%,transparent)}
+.reqmap-group.is-open{background:color-mix(in srgb,var(--reqmap-accent) 5%,var(--dsw-alias-bg-layer-1))}
 .reqmap-group-summary,.reqmap-req-summary{display:flex;align-items:center;gap:8px;width:100%;padding:8px 11px;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.reqmap-group-summary{font-weight:560}
+.reqmap-group-summary{position:relative;font-weight:560;font-size:12.5px}
 .reqmap-caret{display:inline-block;width:10px;flex:none;color:var(--dsw-alias-label-tertiary);font-size:10px;transition:transform 240ms cubic-bezier(.34,1.4,.64,1)}
 .is-open>.reqmap-group-summary>.reqmap-caret,.is-open>.reqmap-req-summary>.reqmap-caret{transform:rotate(90deg)}
 .reqmap-group-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -211,8 +216,9 @@ window.__ModuleLoader__.load({
 .reqmap-collapse[data-open="true"]{grid-template-rows:1fr;opacity:1}
 .reqmap-collapse-inner{overflow:hidden;min-height:0;transform:translateY(-6px);transition:transform 280ms cubic-bezier(.16,1,.3,1)}
 .reqmap-collapse[data-open="true"]>.reqmap-collapse-inner{transform:translateY(0)}
-.reqmap-reqs{display:flex;flex-direction:column;gap:6px;padding:2px 8px 8px 14px}
-.reqmap-req{border:1px solid var(--dsw-alias-border-l2);border-radius:7px;background:var(--dsw-alias-bg-layer-1);transition:border-color 160ms ease,box-shadow 200ms ease,transform 200ms cubic-bezier(.2,.7,.3,1),background-color 200ms ease}
+.reqmap-reqs{position:relative;display:flex;flex-direction:column;gap:5px;padding:3px 4px 7px 14px}
+.reqmap-reqs::before{content:"";position:absolute;left:5px;top:2px;bottom:9px;width:1px;background:color-mix(in srgb,var(--reqmap-accent) 18%,transparent)}
+.reqmap-req{border:1px solid color-mix(in srgb,var(--reqmap-accent) 10%,var(--dsw-alias-border-l2));border-radius:7px;background:var(--dsw-alias-bg-layer-1);transition:border-color 160ms ease,box-shadow 200ms ease,transform 200ms cubic-bezier(.2,.7,.3,1),background-color 200ms ease}
 .reqmap-req:hover{border-color:color-mix(in srgb,var(--reqmap-accent) 26%,var(--dsw-alias-border-l2));box-shadow:0 1px 6px rgba(16,24,40,.06);transform:translateY(-1px)}
 .reqmap-req.is-open:hover{transform:none}
 .reqmap-req[data-preview="true"],.reqmap-group[data-preview="true"]{border-color:color-mix(in srgb,var(--reqmap-accent) 30%,var(--dsw-alias-border-l2));box-shadow:0 3px 14px rgba(16,24,40,.07)}
@@ -307,6 +313,127 @@ window.__ModuleLoader__.load({
     /** Soft accents that keep branch blocks distinguishable in both themes. */
     const BRANCH_ACCENTS = ['#5b82f7', '#8b5cf6', '#14b8a6', '#f59e0b', '#f43f5e', '#6366f1']
 
+    /**
+     * One requirement row. Hover state is local so pointing at a row re-renders
+     * that row only, not the whole map.
+     */
+    function ReqRow({ row, t, statusNames, displayStatus, pinned, canEdit, onTogglePin, onChangeStatus }) {
+      const [hovered, setHovered] = React.useState(false)
+      const timer = useRef(0)
+      React.useEffect(() => () => clearTimeout(timer.current), [])
+      const enter = () => {
+        clearTimeout(timer.current)
+        timer.current = setTimeout(() => setHovered(true), 40)
+      }
+      const leave = () => {
+        clearTimeout(timer.current)
+        timer.current = setTimeout(() => setHovered(false), 260)
+      }
+      const previewed = !pinned && hovered
+      const open = pinned || previewed
+      return h('div', {
+        className: 'reqmap-req' + (open ? ' is-open' : ''),
+        'data-preview': String(previewed),
+        onMouseEnter: enter,
+        onMouseLeave: leave,
+      },
+        h('div', { className: 'reqmap-req-head' },
+          h('button', {
+            className: 'reqmap-req-summary',
+            type: 'button',
+            'aria-expanded': String(pinned),
+            onClick: () => {
+              clearTimeout(timer.current)
+              setHovered(false)
+              onTogglePin(row.id)
+            },
+          },
+            h('span', { className: 'reqmap-caret', 'aria-hidden': true }, '▸'),
+            h('span', { className: 'reqmap-rid' }, row.id),
+            h('span', { className: 'reqmap-req-title' }, row.title),
+          ),
+          canEdit
+            ? h('select', {
+              className: 'reqmap-badge reqmap-badge-select ' + statusTone(displayStatus),
+              value: displayStatus,
+              'aria-label': t('status.label'),
+              title: t('status.hint'),
+              onClick: (event) => event.stopPropagation(),
+              onChange: (event) => {
+                event.stopPropagation()
+                onChangeStatus(row.id, event.target.value)
+              },
+            }, statusNames.map((name) => h('option', { key: name, value: name }, name)))
+            : h('span', { className: 'reqmap-badge ' + statusTone(displayStatus) }, displayStatus),
+        ),
+        h('div', { className: 'reqmap-collapse', 'data-open': String(open) },
+          h('div', { className: 'reqmap-collapse-inner' },
+            h('div', { className: 'reqmap-compare' + (row.old ? '' : ' single') },
+              h('div', { className: 'reqmap-version reqmap-current' },
+                h('strong', null, t('current')),
+                h('p', null, row.current),
+              ),
+              row.old
+                ? h('div', { className: 'reqmap-version reqmap-old' },
+                  h('strong', null, t('old')),
+                  h('p', null, row.old),
+                )
+                : null,
+            ),
+            (row.note || row.source)
+              ? h('div', { className: 'reqmap-notes' },
+                row.note ? h('p', { className: 'reqmap-note' }, t('note') + '：' + row.note) : null,
+                row.source ? h('p', { className: 'reqmap-source' }, t('source') + '：' + row.source) : null,
+              )
+              : null,
+          ),
+        ),
+      )
+    }
+
+    /** One group: a row inside its branch, with its own hover preview. */
+    function GroupBlock({ name, count, pinned, onTogglePin, children }) {
+      const [hovered, setHovered] = React.useState(false)
+      const timer = useRef(0)
+      React.useEffect(() => () => clearTimeout(timer.current), [])
+      const enter = () => {
+        clearTimeout(timer.current)
+        timer.current = setTimeout(() => setHovered(true), 50)
+      }
+      const leave = () => {
+        clearTimeout(timer.current)
+        timer.current = setTimeout(() => setHovered(false), 280)
+      }
+      const previewed = !pinned && hovered
+      const open = pinned || previewed
+      return h('div', {
+        className: 'reqmap-group' + (open ? ' is-open' : ''),
+        'data-preview': String(previewed),
+        onMouseEnter: enter,
+        onMouseLeave: leave,
+      },
+        h('button', {
+          className: 'reqmap-group-summary',
+          type: 'button',
+          'aria-expanded': String(pinned),
+          onClick: () => {
+            clearTimeout(timer.current)
+            setHovered(false)
+            onTogglePin()
+          },
+        },
+          h('span', { className: 'reqmap-caret', 'aria-hidden': true }, '▸'),
+          h('span', { className: 'reqmap-group-name' }, name),
+          h('span', { className: 'reqmap-group-count' }, String(count)),
+        ),
+        h('div', { className: 'reqmap-collapse', 'data-open': String(open) },
+          h('div', { className: 'reqmap-collapse-inner' },
+            h('div', { className: 'reqmap-reqs' }, children),
+          ),
+        ),
+      )
+    }
+
     function RequirementMap({ data, t, showHeader = true, embedded = false, onSetStatus }) {
       const [query, setQuery] = React.useState('')
       const [filter, setFilter] = React.useState('all')
@@ -315,7 +442,6 @@ window.__ModuleLoader__.load({
       const [openReqs, setOpenReqs] = React.useState(() => new Set())
       const [statusOverride, setStatusOverride] = React.useState({})
       const [statusError, setStatusError] = React.useState('')
-      const useRef = React.useRef ?? ((value) => ({ current: value }))
       const rootRef = useRef(null)
       const toolbarRef = useRef(null)
 
@@ -332,6 +458,22 @@ window.__ModuleLoader__.load({
         observer.observe(toolbar)
         return () => observer.disconnect()
       }, [])
+
+      const changeStatus = async (id, status) => {
+        if (typeof onSetStatus !== 'function') return
+        setStatusError('')
+        setStatusOverride((previous) => ({ ...previous, [id]: status }))
+        try {
+          await onSetStatus(id, status)
+        } catch (error) {
+          setStatusOverride((previous) => {
+            const next = { ...previous }
+            delete next[id]
+            return next
+          })
+          setStatusError(t('status.failed') + '：' + String(error?.message ?? error))
+        }
+      }
 
       const { meta, rows } = data
       const statusNames = Object.keys(meta.statuses)
@@ -364,68 +506,15 @@ window.__ModuleLoader__.load({
         return map
       }, [visible, meta.roots])
 
-      // Hover previews a group or a requirement; clicking pins it open.
-      const [hoverGroup, setHoverGroup] = React.useState('')
-      const [hoverReq, setHoverReq] = React.useState('')
-      const hoverTimer = useRef(0)
-      const groupTimer = useRef(0)
-      React.useEffect(() => () => {
-        clearTimeout(hoverTimer.current)
-        clearTimeout(groupTimer.current)
-      }, [])
-      React.useEffect(() => {
-        setHoverGroup('')
-        setHoverReq('')
-      }, [query, filter])
-      const previewGroup = (key) => {
-        clearTimeout(groupTimer.current)
-        groupTimer.current = setTimeout(() => setHoverGroup(key), 50)
-      }
-      const unpreviewGroup = (key) => {
-        clearTimeout(groupTimer.current)
-        groupTimer.current = setTimeout(() => {
-          setHoverGroup((current) => (current === key ? '' : current))
-        }, 280)
-      }
-      const previewReq = (id) => {
-        clearTimeout(hoverTimer.current)
-        hoverTimer.current = setTimeout(() => setHoverReq(id), 40)
-      }
-      const unpreviewReq = (id) => {
-        clearTimeout(hoverTimer.current)
-        hoverTimer.current = setTimeout(() => {
-          setHoverReq((current) => (current === id ? '' : current))
-        }, 260)
-      }
-
-      const changeStatus = async (id, status) => {
-        if (typeof onSetStatus !== 'function') return
-        setStatusError('')
-        setStatusOverride((previous) => ({ ...previous, [id]: status }))
-        try {
-          await onSetStatus(id, status)
-        } catch (error) {
-          setStatusOverride((previous) => {
-            const next = { ...previous }
-            delete next[id]
-            return next
-          })
-          setStatusError(t('status.failed') + '：' + String(error?.message ?? error))
-        }
-      }
-
-      const toggleGroup = (key) => setOpenGroups((previous) => {
+      const toggleIn = (setter) => (key) => setter((previous) => {
         const next = new Set(previous)
         if (next.has(key)) next.delete(key)
         else next.add(key)
         return next
       })
-      const toggleReq = (key) => setOpenReqs((previous) => {
-        const next = new Set(previous)
-        if (next.has(key)) next.delete(key)
-        else next.add(key)
-        return next
-      })
+      const toggleGroup = toggleIn(setOpenGroups)
+      const toggleReq = toggleIn(setOpenReqs)
+
       const expandAll = () => {
         const groups = new Set()
         const reqs = new Set()
@@ -439,10 +528,6 @@ window.__ModuleLoader__.load({
         setOpenReqs(reqs)
       }
       const collapseAll = () => {
-        clearTimeout(hoverTimer.current)
-        clearTimeout(groupTimer.current)
-        setHoverGroup('')
-        setHoverReq('')
         setOpenGroups(new Set())
         setOpenReqs(new Set())
       }
@@ -453,6 +538,45 @@ window.__ModuleLoader__.load({
         head: meta.head || '—',
         count: String(rows.length),
       })
+
+      const branchNodes = []
+      let branchIndex = 0
+      for (const [root, groupMap] of groupsByRoot) {
+        const rootRows = [...groupMap.values()].reduce((sum, list) => sum + list.length, 0)
+        if (rootRows === 0) continue
+        const accent = BRANCH_ACCENTS[branchIndex % BRANCH_ACCENTS.length]
+        branchIndex += 1
+        const groupNodes = []
+        for (const [group, list] of groupMap) {
+          const groupKey = root + '::' + group
+          const rowNodes = list.map((row) => h(ReqRow, {
+            key: row.id,
+            row,
+            t,
+            statusNames,
+            displayStatus: statusOverride[row.id] ?? row.status,
+            pinned: openReqs.has(row.id),
+            canEdit: typeof onSetStatus === 'function',
+            onTogglePin: () => toggleReq(row.id),
+            onChangeStatus: (id, status) => { void changeStatus(id, status) },
+          }))
+          groupNodes.push(h(GroupBlock, {
+            key: groupKey,
+            name: group,
+            count: list.length,
+            pinned: openGroups.has(groupKey),
+            onTogglePin: () => toggleGroup(groupKey),
+          }, rowNodes))
+        }
+        branchNodes.push(h('section', { className: 'reqmap-branch', key: root, style: { '--reqmap-accent': accent } },
+          h('div', { className: 'reqmap-branch-head' },
+            h('span', { className: 'reqmap-branch-dot', 'aria-hidden': true }),
+            h('h2', { className: 'reqmap-branch-title' }, root),
+            h('small', { className: 'reqmap-branch-count' }, rootRows + ' 项'),
+          ),
+          h('div', { className: 'reqmap-groups' }, groupNodes),
+        ))
+      }
 
       return h('div', { className: 'reqmap-root' + (embedded ? ' reqmap-embedded' : ''), ref: rootRef },
         h('style', null, CSS),
@@ -506,121 +630,7 @@ window.__ModuleLoader__.load({
         ),
         statusError ? h('p', { className: 'reqmap-status-error', role: 'status' }, statusError) : null,
         h('main', { className: 'reqmap-main' + (showOld ? '' : ' reqmap-hide-old') },
-          h('div', { className: 'reqmap-grid' },
-            [...groupsByRoot].map(([root, groupMap], branchIndex) => {
-              const rootRows = [...groupMap.values()].reduce((sum, list) => sum + list.length, 0)
-              if (rootRows === 0) return null
-              const accent = BRANCH_ACCENTS[branchIndex % BRANCH_ACCENTS.length]
-              return h('section', { className: 'reqmap-branch', key: root, style: { '--reqmap-accent': accent } },
-                h('div', { className: 'reqmap-branch-head' },
-                  h('span', { className: 'reqmap-branch-dot', 'aria-hidden': true }),
-                  h('h2', { className: 'reqmap-branch-title' }, root),
-                  h('small', { className: 'reqmap-branch-count' }, rootRows + ' 项'),
-                ),
-                h('div', { className: 'reqmap-groups' },
-                  [...groupMap].map(([group, list]) => {
-                    const groupKey = root + '::' + group
-                    const groupPinned = openGroups.has(groupKey)
-                    const groupPreviewed = !groupPinned && hoverGroup === groupKey
-                    const groupOpen = groupPinned || groupPreviewed
-                    return h('div', {
-                      className: 'reqmap-group' + (groupOpen ? ' is-open' : ''),
-                      key: groupKey,
-                      'data-preview': String(groupPreviewed),
-                      onMouseEnter: () => previewGroup(groupKey),
-                      onMouseLeave: () => unpreviewGroup(groupKey),
-                    },
-                      h('button', {
-                        className: 'reqmap-group-summary',
-                        type: 'button',
-                        'aria-expanded': String(groupPinned),
-                        onClick: () => {
-                          clearTimeout(groupTimer.current)
-                          setHoverGroup('')
-                          toggleGroup(groupKey)
-                        },
-                      },
-                        h('span', { className: 'reqmap-caret', 'aria-hidden': true }, '▸'),
-                        h('span', { className: 'reqmap-group-name' }, group),
-                        h('span', { className: 'reqmap-group-count' }, String(list.length)),
-                      ),
-                      h('div', { className: 'reqmap-collapse', 'data-open': String(groupOpen) },
-                        h('div', { className: 'reqmap-collapse-inner' },
-                          h('div', { className: 'reqmap-reqs' },
-                            list.map((row) => {
-                              const pinned = openReqs.has(row.id)
-                              const previewed = !pinned && hoverReq === row.id
-                              const reqOpen = pinned || previewed
-                              const displayStatus = statusOverride[row.id] ?? row.status
-                              return h('div', {
-                                className: 'reqmap-req' + (reqOpen ? ' is-open' : ''),
-                                key: row.id,
-                                'data-preview': String(previewed),
-                                onMouseEnter: () => previewReq(row.id),
-                                onMouseLeave: () => unpreviewReq(row.id),
-                              },
-                                h('div', { className: 'reqmap-req-head' },
-                                  h('button', {
-                                    className: 'reqmap-req-summary',
-                                    type: 'button',
-                                    'aria-expanded': String(pinned),
-                                    onClick: () => {
-                                      clearTimeout(hoverTimer.current)
-                                      setHoverReq('')
-                                      toggleReq(row.id)
-                                    },
-                                  },
-                                    h('span', { className: 'reqmap-caret', 'aria-hidden': true }, '▸'),
-                                    h('span', { className: 'reqmap-rid' }, row.id),
-                                    h('span', { className: 'reqmap-req-title' }, row.title),
-                                  ),
-                                  typeof onSetStatus === 'function'
-                                    ? h('select', {
-                                      className: 'reqmap-badge reqmap-badge-select ' + statusTone(displayStatus),
-                                      value: displayStatus,
-                                      'aria-label': t('status.label'),
-                                      title: t('status.hint'),
-                                      onClick: (event) => event.stopPropagation(),
-                                      onChange: (event) => {
-                                        event.stopPropagation()
-                                        void changeStatus(row.id, event.target.value)
-                                      },
-                                    }, statusNames.map((name) => h('option', { key: name, value: name }, name)))
-                                    : h('span', { className: 'reqmap-badge ' + statusTone(displayStatus) }, displayStatus),
-                                ),
-                                h('div', { className: 'reqmap-collapse', 'data-open': String(reqOpen) },
-                                  h('div', { className: 'reqmap-collapse-inner' },
-                                    h('div', { className: 'reqmap-compare' + (row.old ? '' : ' single') },
-                                      h('div', { className: 'reqmap-version reqmap-current' },
-                                        h('strong', null, t('current')),
-                                        h('p', null, row.current),
-                                      ),
-                                      row.old
-                                        ? h('div', { className: 'reqmap-version reqmap-old' },
-                                          h('strong', null, t('old')),
-                                          h('p', null, row.old),
-                                        )
-                                        : null,
-                                    ),
-                                    (row.note || row.source)
-                                      ? h('div', { className: 'reqmap-notes' },
-                                        row.note ? h('p', { className: 'reqmap-note' }, t('note') + '：' + row.note) : null,
-                                        row.source ? h('p', { className: 'reqmap-source' }, t('source') + '：' + row.source) : null,
-                                      )
-                                      : null,
-                                  ),
-                                ),
-                              )
-                            }),
-                          ),
-                        ),
-                      ),
-                    )
-                  }),
-                ),
-              )
-            }),
-          ),
+          h('div', { className: 'reqmap-grid' }, branchNodes),
           visible.length === 0 ? h('p', { className: 'reqmap-empty' }, t('empty')) : null,
         ),
         h('footer', { className: 'reqmap-foot' },

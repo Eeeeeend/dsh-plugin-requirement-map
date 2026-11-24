@@ -319,7 +319,9 @@ async function prepareCall(llm, selection, signal) {
         const cap = Number.isFinite(modelDefault) && modelDefault > 0
           ? Math.min(MAX_OUTPUT_TOKENS, modelDefault)
           : MAX_OUTPUT_TOKENS
-        const next = { ...controls, maxTokens: cap }
+        // temperature belongs to the prepared controls: mutating it after
+        // prepareCall fails the adapter's "config changed" check.
+        const next = { ...controls, maxTokens: cap, temperature: 0 }
         return effort === undefined ? next : { ...next, reasoningEffort: effort }
       },
     )
@@ -349,10 +351,11 @@ async function callModel(llm, selection, prompt, signal) {
     const call = await prepareCall(llm, selection, controller.signal)
     const config = call
       ? { ...call.config }
-      : { provider: selection.provider, model: selection.model, maxTokens: MAX_OUTPUT_TOKENS }
+      : { provider: selection.provider, model: selection.model, maxTokens: MAX_OUTPUT_TOKENS, temperature: 0 }
+    // Only what the prepared config does not carry may be added here; changing
+    // provider/model/reasoningEffort/temperature/maxTokens/stop fails dispatch.
     const options = {
       ...config,
-      temperature: 0,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }],
       signal: controller.signal,

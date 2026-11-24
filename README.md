@@ -1,6 +1,6 @@
 # 需求导图 · DSH 插件
 
-**把项目需求变成一张可交互的思维导图：自动发现台账、后台生成、悬停即展开、状态可直接改。**
+**把项目需求变成一张可交互的思维导图：自动发现台账、后台生成、悬停即展开、解决个人coding或者大项目同个功能的需求一直变动时的记录，不同会话在同个项目也可整理，对应不同项目之间的思维导图。**
 
 <sub>DSH (DeepSeek Harness) plugin that turns a project's requirement ledger into an interactive mind map — auto-discovery, background generation, hover preview, and inline status editing.</sub>
 

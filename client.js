@@ -206,6 +206,8 @@ window.__ModuleLoader__.load({
 .reqmap-req{border:1px solid var(--dsw-alias-border-l2);border-radius:7px;background:var(--dsw-alias-bg-layer-1);transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
 .reqmap-req:hover{border-color:color-mix(in srgb,var(--reqmap-accent) 26%,var(--dsw-alias-border-l2));box-shadow:0 1px 6px rgba(16,24,40,.06);transform:translateY(-1px)}
 .reqmap-req.is-open:hover{transform:none}
+.reqmap-req[data-preview="true"]{border-color:color-mix(in srgb,var(--reqmap-accent) 34%,var(--dsw-alias-border-l2));box-shadow:0 2px 10px rgba(16,24,40,.08)}
+.reqmap-req.is-open{background:color-mix(in srgb,var(--reqmap-accent) 4%,var(--dsw-alias-bg-layer-1))}
 .reqmap-req-summary{padding:7px 10px}
 .reqmap-rid{font-family:var(--dsw-font-mono,ui-monospace,monospace);color:var(--dsw-alias-label-tertiary);font-size:10.5px;white-space:nowrap;flex:none}
 .reqmap-req-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -344,6 +346,22 @@ window.__ModuleLoader__.load({
         return map
       }, [visible, meta.roots])
 
+      // Hover previews a requirement; clicking pins it open.
+      const [hoverReq, setHoverReq] = React.useState('')
+      const hoverTimer = useRef(0)
+      React.useEffect(() => () => clearTimeout(hoverTimer.current), [])
+      React.useEffect(() => { setHoverReq('') }, [query, filter])
+      const previewReq = (id) => {
+        clearTimeout(hoverTimer.current)
+        hoverTimer.current = setTimeout(() => setHoverReq(id), 110)
+      }
+      const unpreviewReq = (id) => {
+        clearTimeout(hoverTimer.current)
+        hoverTimer.current = setTimeout(() => {
+          setHoverReq((current) => (current === id ? '' : current))
+        }, 150)
+      }
+
       const toggleGroup = (key) => setOpenGroups((previous) => {
         const next = new Set(previous)
         if (next.has(key)) next.delete(key)
@@ -369,6 +387,8 @@ window.__ModuleLoader__.load({
         setOpenReqs(reqs)
       }
       const collapseAll = () => {
+        clearTimeout(hoverTimer.current)
+        setHoverReq('')
         setOpenGroups(new Set())
         setOpenReqs(new Set())
       }
@@ -461,13 +481,25 @@ window.__ModuleLoader__.load({
                         h('div', { className: 'reqmap-collapse-inner' },
                           h('div', { className: 'reqmap-reqs' },
                             list.map((row) => {
-                              const reqOpen = openReqs.has(row.id)
-                              return h('div', { className: 'reqmap-req' + (reqOpen ? ' is-open' : ''), key: row.id },
+                              const pinned = openReqs.has(row.id)
+                              const previewed = !pinned && hoverReq === row.id
+                              const reqOpen = pinned || previewed
+                              return h('div', {
+                                className: 'reqmap-req' + (reqOpen ? ' is-open' : ''),
+                                key: row.id,
+                                'data-preview': String(previewed),
+                                onMouseEnter: () => previewReq(row.id),
+                                onMouseLeave: () => unpreviewReq(row.id),
+                              },
                                 h('button', {
                                   className: 'reqmap-req-summary',
                                   type: 'button',
-                                  'aria-expanded': String(reqOpen),
-                                  onClick: () => toggleReq(row.id),
+                                  'aria-expanded': String(pinned),
+                                  onClick: () => {
+                                    clearTimeout(hoverTimer.current)
+                                    setHoverReq('')
+                                    toggleReq(row.id)
+                                  },
                                 },
                                   h('span', { className: 'reqmap-caret', 'aria-hidden': true }, '▸'),
                                   h('span', { className: 'reqmap-rid' }, row.id),

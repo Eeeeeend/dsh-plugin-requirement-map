@@ -47,6 +47,8 @@ window.__ModuleLoader__.load({
     const CANCEL_ROUTE = '/requirement-map/generate/cancel'
     /** Host route that lists candidate project roots for one Session. */
     const PROJECTS_ROUTE = '/requirement-map/generate/projects'
+    /** Host route that writes one requirement's status back to the ledger. */
+    const SET_STATUS_ROUTE = '/requirement-map/status'
     /** Last project chosen per Session, kept across tab remounts. */
     const PROJECT_MEMORY = new Map()
 
@@ -73,6 +75,9 @@ window.__ModuleLoader__.load({
       'page.generated': '已生成 {count} 项需求：{path}（项目：{project}）',
       'page.generateFailed': '生成失败',
       'page.pause': '暂停',
+      'status.label': '状态',
+      'status.hint': '点击更改状态',
+      'status.failed': '状态更新失败',
       'page.project': '项目',
       'page.paused': '已暂停生成',
       'search.label': '查需求',
@@ -120,6 +125,9 @@ window.__ModuleLoader__.load({
       'page.generated': 'Generated {count} requirements: {path} (project: {project})',
       'page.generateFailed': 'Generation failed',
       'page.pause': 'Pause',
+      'status.label': 'Status',
+      'status.hint': 'Click to change status',
+      'status.failed': 'Status update failed',
       'page.project': 'Project',
       'page.paused': 'Generation paused',
       'search.label': 'Find',
@@ -211,7 +219,12 @@ window.__ModuleLoader__.load({
 .reqmap-req-summary,.reqmap-group-summary{border-radius:6px;transition:background-color 160ms ease}
 .reqmap-req-summary:hover,.reqmap-group-summary:hover{background:color-mix(in srgb,var(--reqmap-accent) 5%,transparent)}
 .reqmap-req.is-open{background:color-mix(in srgb,var(--reqmap-accent) 4%,var(--dsw-alias-bg-layer-1))}
-.reqmap-req-summary{padding:7px 10px}
+.reqmap-req-head{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 10px}
+.reqmap-req-summary{padding:0;flex:1;min-width:0}
+.reqmap-badge-select{appearance:none;-webkit-appearance:none;font:inherit;font-size:10.5px;line-height:1.6;padding:1px 20px 1px 8px;cursor:pointer;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 11px) 50%,calc(100% - 8px) 50%;background-size:3px 3px,3px 3px;background-repeat:no-repeat;transition:filter 140ms ease,border-color 160ms ease}
+.reqmap-badge-select:hover{filter:brightness(1.05)}
+.reqmap-badge-select option{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1)}
+.reqmap-status-error{margin:6px 16px 0;color:var(--dsw-alias-state-error-primary,#a33f3f);font-size:11.5px}
 .reqmap-rid{font-family:var(--dsw-font-mono,ui-monospace,monospace);color:var(--dsw-alias-label-tertiary);font-size:10.5px;white-space:nowrap;flex:none}
 .reqmap-req-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .reqmap-badge{flex:none;display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:999px;font-size:10.5px;line-height:1.6;white-space:nowrap;border:1px solid transparent}
@@ -294,12 +307,14 @@ window.__ModuleLoader__.load({
     /** Soft accents that keep branch blocks distinguishable in both themes. */
     const BRANCH_ACCENTS = ['#5b82f7', '#8b5cf6', '#14b8a6', '#f59e0b', '#f43f5e', '#6366f1']
 
-    function RequirementMap({ data, t, showHeader = true, embedded = false }) {
+    function RequirementMap({ data, t, showHeader = true, embedded = false, onSetStatus }) {
       const [query, setQuery] = React.useState('')
       const [filter, setFilter] = React.useState('all')
       const [showOld, setShowOld] = React.useState(true)
       const [openGroups, setOpenGroups] = React.useState(() => new Set())
       const [openReqs, setOpenReqs] = React.useState(() => new Set())
+      const [statusOverride, setStatusOverride] = React.useState({})
+      const [statusError, setStatusError] = React.useState('')
       const useRef = React.useRef ?? ((value) => ({ current: value }))
       const rootRef = useRef(null)
       const toolbarRef = useRef(null)
@@ -381,6 +396,22 @@ window.__ModuleLoader__.load({
         hoverTimer.current = setTimeout(() => {
           setHoverReq((current) => (current === id ? '' : current))
         }, 260)
+      }
+
+      const changeStatus = async (id, status) => {
+        if (typeof onSetStatus !== 'function') return
+        setStatusError('')
+        setStatusOverride((previous) => ({ ...previous, [id]: status }))
+        try {
+          await onSetStatus(id, status)
+        } catch (error) {
+          setStatusOverride((previous) => {
+            const next = { ...previous }
+            delete next[id]
+            return next
+          })
+          setStatusError(t('status.failed') + '：' + String(error?.message ?? error))
+        }
       }
 
       const toggleGroup = (key) => setOpenGroups((previous) => {
@@ -473,6 +504,7 @@ window.__ModuleLoader__.load({
           h('span', { className: 'reqmap-legend-item reqmap-legend-current' }, t('legend.current')),
           h('span', { className: 'reqmap-legend-item reqmap-legend-old' }, t('legend.old')),
         ),
+        statusError ? h('p', { className: 'reqmap-status-error', role: 'status' }, statusError) : null,
         h('main', { className: 'reqmap-main' + (showOld ? '' : ' reqmap-hide-old') },
           h('div', { className: 'reqmap-grid' },
             [...groupsByRoot].map(([root, groupMap], branchIndex) => {
@@ -519,6 +551,7 @@ window.__ModuleLoader__.load({
                               const pinned = openReqs.has(row.id)
                               const previewed = !pinned && hoverReq === row.id
                               const reqOpen = pinned || previewed
+                              const displayStatus = statusOverride[row.id] ?? row.status
                               return h('div', {
                                 className: 'reqmap-req' + (reqOpen ? ' is-open' : ''),
                                 key: row.id,
@@ -526,20 +559,34 @@ window.__ModuleLoader__.load({
                                 onMouseEnter: () => previewReq(row.id),
                                 onMouseLeave: () => unpreviewReq(row.id),
                               },
-                                h('button', {
-                                  className: 'reqmap-req-summary',
-                                  type: 'button',
-                                  'aria-expanded': String(pinned),
-                                  onClick: () => {
-                                    clearTimeout(hoverTimer.current)
-                                    setHoverReq('')
-                                    toggleReq(row.id)
+                                h('div', { className: 'reqmap-req-head' },
+                                  h('button', {
+                                    className: 'reqmap-req-summary',
+                                    type: 'button',
+                                    'aria-expanded': String(pinned),
+                                    onClick: () => {
+                                      clearTimeout(hoverTimer.current)
+                                      setHoverReq('')
+                                      toggleReq(row.id)
+                                    },
                                   },
-                                },
-                                  h('span', { className: 'reqmap-caret', 'aria-hidden': true }, '▸'),
-                                  h('span', { className: 'reqmap-rid' }, row.id),
-                                  h('span', { className: 'reqmap-req-title' }, row.title),
-                                  h('span', { className: 'reqmap-badge ' + statusTone(row.status) }, row.status),
+                                    h('span', { className: 'reqmap-caret', 'aria-hidden': true }, '▸'),
+                                    h('span', { className: 'reqmap-rid' }, row.id),
+                                    h('span', { className: 'reqmap-req-title' }, row.title),
+                                  ),
+                                  typeof onSetStatus === 'function'
+                                    ? h('select', {
+                                      className: 'reqmap-badge reqmap-badge-select ' + statusTone(displayStatus),
+                                      value: displayStatus,
+                                      'aria-label': t('status.label'),
+                                      title: t('status.hint'),
+                                      onClick: (event) => event.stopPropagation(),
+                                      onChange: (event) => {
+                                        event.stopPropagation()
+                                        void changeStatus(row.id, event.target.value)
+                                      },
+                                    }, statusNames.map((name) => h('option', { key: name, value: name }, name)))
+                                    : h('span', { className: 'reqmap-badge ' + statusTone(displayStatus) }, displayStatus),
                                 ),
                                 h('div', { className: 'reqmap-collapse', 'data-open': String(reqOpen) },
                                   h('div', { className: 'reqmap-collapse-inner' },
@@ -803,6 +850,19 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const onSetStatus = async (id, status) => {
+        if (!sessionId || !selected) throw new Error('no ledger selected')
+        const response = await fetch(SET_STATUS_ROUTE, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ sessionId, path: selected, id, status }),
+        })
+        const result = await response.json().catch(() => ({}))
+        if (!response.ok || !result?.ok) throw new Error(result?.error || `HTTP ${response.status}`)
+        setToken((value) => value + 1)
+      }
+
       const running = job.state === 'running'
       const notice = job.state === 'done'
         ? t('page.generated', { count: String(job.result?.count ?? 0), path: job.result?.path ?? '', project: job.result?.project ?? '' })
@@ -903,7 +963,7 @@ window.__ModuleLoader__.load({
             : null,
           state.kind === 'loading' ? h('p', { className: 'reqmap-empty' }, t('page.loading')) : null,
           state.kind === 'error' ? h('div', { className: 'reqmap-error' }, t('page.error') + '：' + state.message) : null,
-          state.kind === 'ok' ? h(RequirementMap, { data: state.data, t, showHeader: false, embedded: true }) : null,
+          state.kind === 'ok' ? h(RequirementMap, { data: state.data, t, showHeader: false, embedded: true, onSetStatus }) : null,
           notice && state.kind !== 'none' ? h('p', { className: 'reqmap-notice' }, notice) : null,
           running && state.kind !== 'none' ? h('p', { className: 'reqmap-notice' }, t('page.generating')) : null,
         ),

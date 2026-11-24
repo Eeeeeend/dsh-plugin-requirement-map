@@ -576,7 +576,7 @@ export async function generateLedger(ctx, options) {
 }
 
 /** Resolve one session's workspace root, live or persisted. */
-async function resolveWorkspaceRoot(ctx, sessionId) {
+export async function resolveWorkspaceRoot(ctx, sessionId) {
   if (typeof sessionId !== 'string' || sessionId.length === 0) return process.cwd()
   try {
     const live = ctx.get('sessions')?.get?.(sessionId)?.header?.cwd

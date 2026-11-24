@@ -121,6 +121,25 @@ export function searchable(row) {
     .toLowerCase()
 }
 
+/**
+ * Set one requirement's status in a ledger file.
+ * @param path - absolute ledger path.
+ * @param id - requirement id.
+ * @param status - one key of `meta.statuses`.
+ * @returns the applied status.
+ */
+export async function setStatus(path, id, status) {
+  const data = await readLedger(path)
+  if (!Array.isArray(data.requirements)) throw new Error('ledger has no requirements array')
+  const row = data.requirements.find((item) => item && item.id === id)
+  if (!row) throw new Error(`requirement not found: ${id}`)
+  const statuses = Object.keys(data.meta?.statuses ?? {})
+  if (statuses.length > 0 && !statuses.includes(status)) throw new Error(`unknown status: ${status}`)
+  row.status = status
+  await writeLedger(path, data)
+  return { ok: true, id, status, title: row.title ?? '' }
+}
+
 /** Apply one action; returns the JSON-serializable value rendered to the model. */
 export async function run(args) {
   const action = String(args.action ?? '').trim()

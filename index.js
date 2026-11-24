@@ -17,8 +17,9 @@
  * `defineTool`, so a local directory bundle resolves nothing from the dsh
  * installation.
  */
-import { run } from './ledger.js'
-import { cancelGeneration, generationStatus, listProjects, startGeneration } from './generate.js'
+import { resolve } from 'node:path'
+import { run, setStatus } from './ledger.js'
+import { cancelGeneration, generationStatus, listProjects, resolveWorkspaceRoot, startGeneration } from './generate.js'
 
 /** JSON Schema for the tool's arguments. */
 const PARAMETERS = {
@@ -159,6 +160,33 @@ export function apply(ctx) {
         }
       },
     }), 'requirement-map: generate route')
+
+    scope.effect(() => scope.webServer.register({
+      kind: 'exact',
+      path: '/requirement-map/status',
+      handler: async (req, res) => {
+        if (req.method !== 'POST') {
+          res.writeHead(405, { allow: 'POST' })
+          res.end()
+          return
+        }
+        const body = await readJsonBody(req)
+        if (body === undefined) {
+          sendJson(res, 400, { ok: false, error: 'invalid request body' })
+          return
+        }
+        try {
+          const root = await resolveWorkspaceRoot(scope, body.sessionId)
+          const target = resolve(root, String(body.path ?? ''))
+          if (target !== root && !target.startsWith(root + '/')) {
+            throw new Error('ledger path is outside the workspace')
+          }
+          sendJson(res, 200, await setStatus(target, String(body.id ?? ''), String(body.status ?? '')))
+        } catch (error) {
+          sendJson(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+        }
+      },
+    }), 'requirement-map: status route')
 
     scope.effect(() => scope.webServer.register({
       kind: 'exact',

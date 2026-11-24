@@ -7,7 +7,7 @@
  * the plugin does the work on the Host.
  */
 import { readdir, readFile, stat, writeFile, mkdir } from 'node:fs/promises'
-import { dirname, join, relative, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 
 /** Document extensions worth feeding the extractor. */
 const DOC_EXTENSIONS = new Set(['.md', '.mdx', '.txt'])
@@ -17,9 +17,9 @@ const SKIP_DIRS = new Set([
   'target', 'out', '.turbo', '.cache', '__pycache__',
 ])
 /** Total document bytes sent to the model. */
-const DOC_BUDGET = 120_000
+const DOC_BUDGET = 60_000
 /** Files read at most. */
-const DOC_MAX_FILES = 80
+const DOC_MAX_FILES = 40
 /** Directory depth walked from the workspace root. */
 const DOC_MAX_DEPTH = 4
 
@@ -32,18 +32,10 @@ const STATUS_TEMPLATE = {
 }
 
 const SYSTEM_PROMPT = [
-  '你是需求台账提取器。阅读给定仓库文档，输出一份需求台账 JSON。',
-  '只输出 JSON，不要 Markdown 代码围栏，不要解释。',
-  'JSON 结构：',
-  '{"meta":{"title":string,"date":"YYYY-MM-DD","branch":string,"head":string,"scope":string,',
-  '"image_note":string,"statuses":{string:string},"roots":string[]},',
-  '"requirements":[{"id":string,"root":string,"group":string,"title":string,',
-  '"current":string,"old":string,"status":string,"source":string,"note":string}]}',
-  '规则：',
-  '1. 只提取文档中真实存在的需求，不要编造；文档没写的字段留空字符串。',
-  '2. roots 是顶层分类（2-6 个），group 是 roots 下的分组，id 用 <前缀>-<两位数字> 且唯一。',
-  '3. status 只能取 statuses 的键；statuses 固定为：' + Object.keys(STATUS_TEMPLATE).join('、') + '。',
-  '4. current 写当前要求；被替代的口径写进 old；未确认事项写进 note；source 写文档相对路径。',
+  '你是需求台账提取器。阅读用户给的仓库文档，输出一份需求台账 JSON。',
+  '只输出 JSON 对象本身：第一个字符是 {，最后一个字符是 }。',
+  '不要复述任务，不要分析，不要解释，不要代码围栏。',
+  '只提取文档中真实存在的需求，不要编造。',
 ].join('\n')
 
 /** Rank documents by how likely they hold requirement prose. */
@@ -107,17 +99,115 @@ async function collectDocs(root) {
   return files
 }
 
-/** Build the user prompt from the collected documents. */
-function buildPrompt(docs, targetPath) {
-  const header = [
-    `目标台账路径：${targetPath}`,
-    `文档数量：${docs.length}`,
-    '',
-    '以下是仓库文档，按路径分隔：',
-    '',
-  ]
+/**
+ * Build the user prompt: documents first, instructions last.
+ *
+ * Recency matters — a model that reads a long document dump tends to narrate
+ * instead of answering, so the hard "only JSON" instruction is the last thing
+ * it sees.
+ */
+function buildPrompt(docs, targetPath, projectRoot) {
   const body = docs.map((doc) => `===== ${doc.path} =====\n${doc.text}`)
-  return [...header, ...body].join('\n')
+  return [
+    `项目根目录：${projectRoot}`,
+    '',
+    '以下是该项目的文档：',
+    '',
+    ...body,
+    '',
+    '-----',
+    '任务：根据以上文档，为这个项目输出一份需求台账 JSON。',
+    `目标路径（仅作记录）：${targetPath}`,
+    '',
+    '硬性要求：',
+    '1. 你的整个回复必须是一个 JSON 对象，第一个字符是 {，最后一个字符是 }。',
+    '2. 不要复述任务、不要分析、不要解释、不要代码围栏、不要任何前后缀。',
+    '3. 只提取文档中真实存在的需求，不要编造；文档没写的字段留空字符串。',
+    '4. roots 是顶层分类（2-6 个），group 是 roots 下的分组，id 用 <前缀>-<两位数字> 且唯一。',
+    `5. status 只能取 statuses 的键；statuses 固定为：${Object.keys(STATUS_TEMPLATE).join('、')}。`,
+    '6. current 写当前要求；被替代的口径写进 old；未确认事项写进 note；source 写文档相对路径。',
+    '',
+    '结构：',
+    '{"meta":{"title":string,"date":"YYYY-MM-DD","branch":string,"head":string,"scope":string,"image_note":string,"statuses":{string:string},"roots":string[]},"requirements":[{"id":string,"root":string,"group":string,"title":string,"current":string,"old":string,"status":string,"source":string,"note":string}]}',
+  ].join('\n')
+}
+
+/** Project manifests that mark a directory as a project root. */
+const MANIFEST_NAMES = [
+  '.git', 'package.json', 'pyproject.toml', 'Cargo.toml', 'go.mod',
+  'pom.xml', 'build.gradle', 'composer.json', 'requirements.txt',
+]
+
+/** Whether one directory holds a project manifest. */
+async function hasManifest(dir) {
+  for (const name of MANIFEST_NAMES) {
+    try {
+      await stat(join(dir, name))
+      return true
+    } catch {
+      // Not present.
+    }
+  }
+  return false
+}
+
+/** Score one directory by requirement-doc density (bounded walk). */
+async function requirementScore(dir) {
+  let score = 0
+  const walk = async (current, depth) => {
+    if (depth > 2) return
+    let entries
+    try {
+      entries = await readdir(current, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue
+      const full = join(current, entry.name)
+      if (entry.isDirectory()) {
+        await walk(full, depth + 1)
+        continue
+      }
+      if (!entry.isFile()) continue
+      if (/requirements?|需求/iu.test(entry.name)) score += 3
+      if (/\.(md|mdx)$/iu.test(entry.name)) score += 1
+    }
+  }
+  await walk(dir, 0)
+  return score
+}
+
+/**
+ * Pick one project root to generate against.
+ *
+ * A workspace can be a dumping ground of unrelated projects; generating from
+ * all of them confuses the model. Prefer the workspace itself when it is a
+ * project, otherwise the immediate child project with the most requirement
+ * documents.
+ */
+async function detectProjectRoot(root) {
+  if (await hasManifest(root)) return { root, reason: 'workspace' }
+  let entries
+  try {
+    entries = await readdir(root, { withFileTypes: true })
+  } catch {
+    return { root, reason: 'fallback' }
+  }
+  const scored = []
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue
+    const full = join(root, entry.name)
+    if (!(await hasManifest(full))) continue
+    scored.push({ root: full, score: await requirementScore(full) })
+  }
+  scored.sort((left, right) => right.score - left.score || left.root.localeCompare(right.root))
+  if (scored.length === 0) return { root, reason: 'fallback' }
+  return {
+    root: scored[0].root,
+    reason: 'child',
+    alternatives: scored.slice(0, 5).map((item) => item.root),
+  }
 }
 
 /**
@@ -262,6 +352,7 @@ async function callModel(llm, selection, prompt, signal) {
       : { provider: selection.provider, model: selection.model, maxTokens: MAX_OUTPUT_TOKENS }
     const options = {
       ...config,
+      temperature: 0,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }],
       signal: controller.signal,
@@ -292,6 +383,34 @@ async function callModel(llm, selection, prompt, signal) {
 }
 
 /**
+ * List candidate project roots for one Session's workspace.
+ *
+ * A workspace may contain many unrelated projects; the page lets the user pick
+ * one so the generated ledger describes a single project.
+ */
+export async function listProjects(ctx, options = {}) {
+  const root = await resolveWorkspaceRoot(ctx, options.sessionId)
+  if (!root) return { ok: false, error: 'cannot resolve the workspace root for this session' }
+  const items = []
+  if (await hasManifest(root)) items.push({ path: '.', name: basename(root) || '.', score: await requirementScore(root) })
+  let entries = []
+  try {
+    entries = await readdir(root, { withFileTypes: true })
+  } catch {
+    // Unreadable workspace; fall through.
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue
+    const full = join(root, entry.name)
+    if (!(await hasManifest(full))) continue
+    items.push({ path: entry.name, name: entry.name, score: await requirementScore(full) })
+  }
+  items.sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
+  if (items.length === 0) items.push({ path: '.', name: basename(root) || '.', score: 0 })
+  return { ok: true, root, projects: items.slice(0, 30) }
+}
+
+/**
  * Generate one ledger in the background.
  * @param ctx - Host plugin context with `llm`, `agentDefaultModel`, and `sessions`.
  * @param options - session identity, target path, and cancellation.
@@ -313,10 +432,22 @@ export async function generateLedger(ctx, options) {
   const targetPath = path && typeof path === 'string' ? path : 'docs/requirements/requirements.reqmap.json'
   const absoluteTarget = resolve(root, targetPath)
 
-  const docs = await collectDocs(root)
+  const selected = typeof options.project === 'string' && options.project !== '' && options.project !== '.' ? options.project : ''
+  let project
+  if (selected) {
+    const candidate = resolve(root, selected)
+    if (candidate !== root && !candidate.startsWith(root + '/')) {
+      throw new Error('selected project is outside the workspace')
+    }
+    project = { root: candidate, reason: 'selected' }
+  } else {
+    project = await detectProjectRoot(root)
+  }
+  const docs = await collectDocs(project.root)
   if (docs.length === 0) throw new Error('no requirement documents found in this workspace')
 
-  const basePrompt = buildPrompt(docs, targetPath)
+  const projectLabel = relative(root, project.root).split('\\').join('/') || '.'
+  const basePrompt = buildPrompt(docs, targetPath, projectLabel)
   const correction = '\n\n注意：上一次输出不是合法 JSON。请重新输出，只输出一个 JSON 对象，'
     + '以 { 开头、} 结尾，不要任何解释、前后缀或代码围栏。'
 
@@ -335,6 +466,9 @@ export async function generateLedger(ctx, options) {
         ok: true,
         path: targetPath,
         absolutePath: absoluteTarget,
+        project: projectLabel,
+        projectReason: project.reason,
+        alternatives: project.alternatives?.map((item) => relative(root, item).split('\\').join('/')) ?? [],
         count: ledger.requirements.length,
         docs: docs.length,
         attempts: attempt,

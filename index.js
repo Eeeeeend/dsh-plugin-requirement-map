@@ -18,7 +18,7 @@
  * installation.
  */
 import { run } from './ledger.js'
-import { cancelGeneration, generationStatus, startGeneration } from './generate.js'
+import { cancelGeneration, generationStatus, listProjects, startGeneration } from './generate.js'
 
 /** JSON Schema for the tool's arguments. */
 const PARAMETERS = {
@@ -142,6 +142,7 @@ export function apply(ctx) {
           const result = startGeneration(scope, {
             sessionId: sessionIdOf(body, req.url),
             path: typeof body.path === 'string' ? body.path : '',
+            project: typeof body.project === 'string' ? body.project : '',
           })
           sendJson(res, 200, result)
         } catch (error) {
@@ -149,6 +150,24 @@ export function apply(ctx) {
         }
       },
     }), 'requirement-map: generate route')
+
+    scope.effect(() => scope.webServer.register({
+      kind: 'exact',
+      path: '/requirement-map/generate/projects',
+      handler: async (req, res) => {
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+          res.writeHead(405, { allow: 'GET, HEAD' })
+          res.end()
+          return
+        }
+        try {
+          const result = await listProjects(scope, { sessionId: sessionIdOf(undefined, req.url) })
+          sendJson(res, 200, result)
+        } catch (error) {
+          sendJson(res, 500, { ok: false, error: error instanceof Error ? error.message : String(error) })
+        }
+      },
+    }), 'requirement-map: projects route')
 
     scope.effect(() => scope.webServer.register({
       kind: 'exact',

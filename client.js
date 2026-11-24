@@ -45,6 +45,8 @@ window.__ModuleLoader__.load({
     const STATUS_ROUTE = '/requirement-map/generate/status'
     /** Host route that pauses one Session's generation job. */
     const CANCEL_ROUTE = '/requirement-map/generate/cancel'
+    /** Host route that lists candidate project roots for one Session. */
+    const PROJECTS_ROUTE = '/requirement-map/generate/projects'
 
     // ── Locales ──────────────────────────────────────────────────────────
 
@@ -66,9 +68,10 @@ window.__ModuleLoader__.load({
       'page.generate': '生成需求导图',
       'page.generatingShort': '生成中…',
       'page.generating': '正在后台生成台账，请稍候…',
-      'page.generated': '已生成 {count} 项需求：{path}',
+      'page.generated': '已生成 {count} 项需求：{path}（项目：{project}）',
       'page.generateFailed': '生成失败',
       'page.pause': '暂停',
+      'page.project': '项目',
       'page.paused': '已暂停生成',
       'search.label': '查需求',
       'search.placeholder': '搜索：编号、标题、当前/旧要求、备注…',
@@ -112,9 +115,10 @@ window.__ModuleLoader__.load({
       'page.generate': 'Generate map',
       'page.generatingShort': 'Generating…',
       'page.generating': 'Generating the ledger in the background…',
-      'page.generated': 'Generated {count} requirements: {path}',
+      'page.generated': 'Generated {count} requirements: {path} (project: {project})',
       'page.generateFailed': 'Generation failed',
       'page.pause': 'Pause',
+      'page.project': 'Project',
       'page.paused': 'Generation paused',
       'search.label': 'Find',
       'search.placeholder': 'Search id, title, current/old text, note…',
@@ -489,6 +493,8 @@ window.__ModuleLoader__.load({
       const [selected, setSelected] = React.useState('')
       const [token, setToken] = React.useState(0)
       const [job, setJob] = React.useState({ state: 'idle' })
+      const [projects, setProjects] = React.useState([])
+      const [project, setProject] = React.useState('')
       const [state, setState] = React.useState({ kind: 'discovering' })
 
       // Keep the session catalog fresh.
@@ -548,6 +554,21 @@ window.__ModuleLoader__.load({
         return watchLedger(sessionId, selected, () => setToken((value) => value + 1))
       }, [selected, sessionId])
 
+      React.useEffect(() => {
+        if (!sessionId) return undefined
+        let cancelled = false
+        fetch(`${PROJECTS_ROUTE}?sessionId=${encodeURIComponent(sessionId)}`, { credentials: 'same-origin' })
+          .then((response) => (response.ok ? response.json() : undefined))
+          .then((result) => {
+            if (cancelled || !result?.ok) return
+            const items = Array.isArray(result.projects) ? result.projects : []
+            setProjects(items)
+            setProject((previous) => (previous && items.some((item) => item.path === previous) ? previous : (items[0]?.path ?? '')))
+          })
+          .catch(() => {})
+        return () => { cancelled = true }
+      }, [sessionId])
+
       // Adopt an existing Host job when the page mounts or the Session changes,
       // so switching away and back keeps showing the same generation.
       React.useEffect(() => {
@@ -592,7 +613,7 @@ window.__ModuleLoader__.load({
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ sessionId, path: DEFAULT_LEDGER_PATH }),
+            body: JSON.stringify({ sessionId, path: DEFAULT_LEDGER_PATH, project }),
           })
           const result = await response.json().catch(() => ({}))
           if (!response.ok || !result?.ok) throw new Error(result?.error || `HTTP ${response.status}`)
@@ -619,7 +640,7 @@ window.__ModuleLoader__.load({
 
       const running = job.state === 'running'
       const notice = job.state === 'done'
-        ? t('page.generated', { count: String(job.result?.count ?? 0), path: job.result?.path ?? '' })
+        ? t('page.generated', { count: String(job.result?.count ?? 0), path: job.result?.path ?? '', project: job.result?.project ?? '' })
         : job.state === 'error'
           ? t('page.generateFailed') + '：' + (job.error ?? '')
           : job.state === 'cancelled'
@@ -648,6 +669,15 @@ window.__ModuleLoader__.load({
                 setSelected('')
               },
             }, sessions.map((session) => h('option', { key: session.id, value: session.id }, session.label)))
+            : null,
+          projects.length > 1 ? h('label', { className: 'reqmap-label', htmlFor: 'reqmap-project' }, t('page.project')) : null,
+          projects.length > 1
+            ? h('select', {
+              id: 'reqmap-project',
+              className: 'reqmap-select reqmap-input-path',
+              value: project,
+              onChange: (event) => setProject(event.target.value),
+            }, projects.map((item) => h('option', { key: item.path, value: item.path }, item.name || item.path)))
             : null,
           ledgers.length > 1 ? h('label', { className: 'reqmap-label', htmlFor: 'reqmap-ledger' }, t('page.ledger')) : null,
           ledgers.length > 1

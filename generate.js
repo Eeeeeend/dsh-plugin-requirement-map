@@ -538,6 +538,11 @@ function buildMergePrompt(userMessages, existing, targetPath, projectLabel) {
   ].join('\n')
 }
 
+/** Local calendar day, used to stamp when a requirement appeared or changed. */
+function today() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 /**
  * Merge a model delta into an existing ledger without ever losing a row.
  *
@@ -588,6 +593,8 @@ function mergeLedger(existing, payload) {
       status: statusNames.includes(raw?.status) ? raw.status : (statusNames[0] ?? '未完成'),
       source: String(raw?.source ?? '会话用户要求'),
       note: String(raw?.note ?? ''),
+      created: today(),
+      updated: today(),
     }
     ledger.requirements.push(row)
     byId.set(id, row)
@@ -601,7 +608,9 @@ function mergeLedger(existing, payload) {
     const current = String(raw?.current ?? '').trim()
     if (current && current !== row.current) {
       row.old = row.current
+      row.old_date = row.updated || ''
       row.current = current
+      row.updated = today()
       updated += 1
     }
     const note = String(raw?.note ?? '').trim()
@@ -618,6 +627,7 @@ function mergeLedger(existing, payload) {
     }
   }
 
+  if (added > 0 || updated > 0) ledger.meta.updated_at = new Date().toISOString()
   return { ledger, added, updated }
 }
 
@@ -721,6 +731,12 @@ export async function generateLedger(ctx, options) {
       } else {
         ledger = normalizeLedger(payload)
         if (ledger.requirements.length === 0) throw new Error('the model extracted no requirements')
+        const stamp = today()
+        for (const row of ledger.requirements) {
+          row.created = row.created || stamp
+          row.updated = row.updated || stamp
+        }
+        ledger.meta.updated_at = new Date().toISOString()
       }
       await mkdir(dirname(absoluteTarget), { recursive: true })
       if (existing && originalText) {

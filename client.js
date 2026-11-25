@@ -51,6 +51,8 @@ window.__ModuleLoader__.load({
     const PROJECTS_ROUTE = '/requirement-map/generate/projects'
     /** Host route that writes one requirement's status back to the ledger. */
     const SET_STATUS_ROUTE = '/requirement-map/status'
+    /** How often the open ledger is re-read while the page is visible. */
+    const AUTO_REFRESH_MS = 6000
     /** Last project chosen per Session, kept across tab remounts. */
     const PROJECT_MEMORY = new Map()
 
@@ -104,6 +106,18 @@ window.__ModuleLoader__.load({
       'legend.old': '旧：保留追溯，不再执行',
       'legend.note': '“有实现记录”不等于本轮已复验，也不等于安装包已更新。',
       'maintain': '维护方法：需求编号不变；新口径写“当前”，被替代内容移入“旧”；状态更新必须附证据。',
+      'page.merged': '已合并：新增 {added} 条、更新 {updated} 条（共 {count} 条，原台账已备份）',
+      'page.unchanged': '没有发现新的需求变更，台账未改动',
+      'date.today': '今天',
+      'date.yesterday': '昨天',
+      'date.daysAgo': '{n} 天前',
+      'when.tip': '最近变更：{date}',
+      'when.changed': '最近变更',
+      'when.replaced': '旧口径记录于',
+      'when.unknown': '未记录',
+      'auto.on': '自动刷新',
+      'auto.updated': '刚刚已更新',
+      'page.lastUpdate': '最近更新 {at}',
     }
 
     const en = {
@@ -154,6 +168,18 @@ window.__ModuleLoader__.load({
       'legend.old': 'Old: kept for traceability, not a task',
       'legend.note': '"Has implementation record" is not re-verification, and not an updated installer.',
       'maintain': 'Maintenance: keep IDs stable; write new wording under Current and move replaced text to Old; attach evidence to status changes.',
+      'page.merged': 'Merged: {added} added, {updated} updated ({count} total; previous ledger backed up)',
+      'page.unchanged': 'No new requirement changes; the ledger was left untouched',
+      'date.today': 'today',
+      'date.yesterday': 'yesterday',
+      'date.daysAgo': '{n} days ago',
+      'when.tip': 'Last changed: {date}',
+      'when.changed': 'Last changed',
+      'when.replaced': 'Previous wording recorded',
+      'when.unknown': 'not recorded',
+      'auto.on': 'Auto-refresh',
+      'auto.updated': 'just updated',
+      'page.lastUpdate': 'Updated {at}',
     }
 
     // ── Styles ───────────────────────────────────────────────────────────
@@ -231,6 +257,17 @@ window.__ModuleLoader__.load({
 .reqmap-badge-select:hover{filter:brightness(1.05)}
 .reqmap-badge-select option{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1)}
 .reqmap-status-error{margin:6px 16px 0;color:var(--dsw-alias-state-error-primary,#a33f3f);font-size:11.5px}
+.reqmap-when{flex:none;padding:1px 7px;border-radius:999px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);font-size:10.5px;line-height:1.6;white-space:nowrap;font-variant-numeric:tabular-nums}
+.reqmap-when.is-fresh{color:var(--dsw-alias-state-business-primary,#2457c5);border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2457c5) 32%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2457c5) 10%,transparent);font-weight:560}
+.reqmap-dates{display:flex;flex-wrap:wrap;gap:4px 14px;padding:2px 10px 6px;color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums}
+.reqmap-auto{color:var(--dsw-alias-label-tertiary);gap:6px}
+.reqmap-auto-dot{width:6px;height:6px;border-radius:50%;background:var(--dsw-alias-label-tertiary);opacity:.5}
+.reqmap-auto.is-on{color:var(--dsw-alias-state-success-primary,#1f6b45)}
+.reqmap-auto.is-on .reqmap-auto-dot{background:var(--dsw-alias-state-success-primary,#1f6b45);opacity:1;box-shadow:0 0 0 0 color-mix(in srgb,var(--dsw-alias-state-success-primary,#1f6b45) 45%,transparent);animation:reqmap-pulse 2.4s ease-out infinite}
+.reqmap-updated{display:flex;align-items:center;gap:10px}
+.reqmap-live{color:var(--dsw-alias-state-success-primary,#1f6b45);font-size:11px}
+@keyframes reqmap-pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--dsw-alias-state-success-primary,#1f6b45) 40%,transparent)}70%{box-shadow:0 0 0 5px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.reqmap-auto.is-on .reqmap-auto-dot{animation:none}}
 .reqmap-rid{font-family:var(--dsw-font-mono,ui-monospace,monospace);color:var(--dsw-alias-label-tertiary);font-size:10.5px;white-space:nowrap;flex:none}
 .reqmap-req-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .reqmap-badge{flex:none;display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:999px;font-size:10.5px;line-height:1.6;white-space:nowrap;border:1px solid transparent}
@@ -310,6 +347,35 @@ window.__ModuleLoader__.load({
 
     // ── Mind map ─────────────────────────────────────────────────────────
 
+    /** Whole days between a `YYYY-MM-DD` stamp and today, or null when unparseable. */
+    function daysAgo(stamp, now) {
+      if (typeof stamp !== 'string' || !/^\d{4}-\d{2}-\d{2}$/u.test(stamp)) return null
+      const then = Date.parse(stamp + 'T00:00:00Z')
+      if (!Number.isFinite(then)) return null
+      const at = new Date(now ?? Date.now())
+      const midnight = Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate())
+      return Math.round((midnight - then) / 86_400_000)
+    }
+
+    /** `YYYY-MM-DD HH:mm` in the viewer's clock, or '' when unparseable. */
+    function stampText(value) {
+      if (typeof value !== 'string' || value === '') return ''
+      const at = new Date(value)
+      if (!Number.isFinite(at.getTime())) return value
+      const pad = (n) => String(n).padStart(2, '0')
+      return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`
+    }
+
+    /** "今天 / 昨天 / 3 天前 / 2026-11-02" for one change stamp. */
+    function relativeDay(stamp, t, now) {
+      const days = daysAgo(stamp, now)
+      if (days === null) return stamp
+      if (days <= 0) return t('date.today')
+      if (days === 1) return t('date.yesterday')
+      if (days < 30) return t('date.daysAgo', { n: String(days) })
+      return stamp
+    }
+
     /** Soft accents that keep branch blocks distinguishable in both themes. */
     const BRANCH_ACCENTS = ['#5b82f7', '#8b5cf6', '#14b8a6', '#f59e0b', '#f43f5e', '#6366f1']
 
@@ -361,6 +427,12 @@ window.__ModuleLoader__.load({
             h('span', { className: 'reqmap-rid' }, row.id),
             h('span', { className: 'reqmap-req-title' }, row.title),
           ),
+          row.updated
+            ? h('span', {
+              className: 'reqmap-when' + (daysAgo(row.updated) !== null && daysAgo(row.updated) <= 7 ? ' is-fresh' : ''),
+              title: t('when.tip', { date: row.updated }),
+            }, relativeDay(row.updated, t))
+            : null,
           canEdit && open
             ? h('select', {
               className: 'reqmap-badge reqmap-badge-select ' + statusTone(displayStatus),
@@ -389,6 +461,10 @@ window.__ModuleLoader__.load({
                     h('p', null, row.old),
                   )
                   : null,
+              ),
+              h('div', { className: 'reqmap-dates' },
+                h('span', null, t('when.changed') + '：' + (row.updated ? relativeDay(row.updated, t) + ' · ' + row.updated : t('when.unknown'))),
+                row.old_date ? h('span', null, t('when.replaced') + '：' + row.old_date) : null,
               ),
               (row.note || row.source)
                 ? h('div', { className: 'reqmap-notes' },
@@ -454,7 +530,7 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function RequirementMap({ data, t, showHeader = true, embedded = false, onSetStatus }) {
+    function RequirementMap({ data, t, showHeader = true, embedded = false, onSetStatus, live = true, onToggleLive }) {
       const [query, setQuery] = React.useState('')
       const [filter, setFilter] = React.useState('all')
       const [showOld, setShowOld] = React.useState(true)
@@ -639,6 +715,16 @@ window.__ModuleLoader__.load({
               onClick: () => setShowOld((value) => !value),
             }, showOld ? t('hideOld') : t('showOld')),
             h('button', { className: 'reqmap-btn', type: 'button', onClick: () => window.print() }, t('print')),
+            h('button', {
+              className: 'reqmap-btn reqmap-auto' + (live ? ' is-on' : ''),
+              type: 'button',
+              'aria-pressed': String(live),
+              title: t('auto.tip'),
+              onClick: () => onToggleLive?.(),
+            },
+              h('span', { className: 'reqmap-auto-dot', 'aria-hidden': true }),
+              t('auto.on'),
+            ),
             h('span', { className: 'reqmap-counter', 'aria-live': 'polite' }, t('counter', {
               shown: String(visible.length),
               total: String(rows.length),
@@ -700,7 +786,7 @@ window.__ModuleLoader__.load({
       return ids.find((id) => (retainedBy(id) ?? 0) > 0) ?? ids[0] ?? ''
     }
 
-    function Page({ t, sessionId: fixedSessionId, compact = false, listSessions, subscribeSessions, retainedBy, searchLedgers, readLedger, watchLedger, sendPrompt }) {
+    function Page({ t, sessionId: fixedSessionId, compact = false, listSessions, subscribeSessions, retainedBy, searchLedgers, readLedger, watchLedger, watchDirectory, sendPrompt }) {
       const [list, setList] = React.useState(() => listSessions())
       const [sessionId, setSessionId] = React.useState(() => fixedSessionId || pickSession(listSessions(), retainedBy))
       const [ledgers, setLedgers] = React.useState([])
@@ -787,6 +873,44 @@ window.__ModuleLoader__.load({
         if (!selected || !sessionId) return undefined
         return watchLedger(sessionId, selected, () => setToken((value) => value + 1))
       }, [selected, sessionId])
+
+      // Re-read without the loading flash: the map stays on screen and only the
+      // data changes. A failed read keeps the previous view.
+      const [live, setLive] = React.useState(true)
+      const silentReload = React.useCallback(async () => {
+        if (!sessionId || !selected) return
+        try {
+          const text = await readLedger(sessionId, selected)
+          setState({ kind: 'ok', data: parseLedger(text), path: selected })
+        } catch {
+          // Keep whatever is on screen; the manual button reports real failures.
+        }
+      }, [sessionId, selected])
+
+      // Default-on polling, like the task board. Visible tabs only.
+      React.useEffect(() => {
+        if (!live || !selected || !sessionId) return undefined
+        const tick = () => {
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+          void silentReload()
+        }
+        const timer = setInterval(tick, AUTO_REFRESH_MS)
+        if (typeof document !== 'undefined' && document.addEventListener) {
+          document.addEventListener('visibilitychange', tick)
+          return () => {
+            clearInterval(timer)
+            document.removeEventListener('visibilitychange', tick)
+          }
+        }
+        return () => clearInterval(timer)
+      }, [live, selected, sessionId, silentReload])
+
+      // A newly generated ledger is a new file: watch the folder, not just the file.
+      React.useEffect(() => {
+        if (!sessionId) return undefined
+        const dir = project && project !== '.' ? project + '/docs/requirements' : 'docs/requirements'
+        return watchDirectory(sessionId, dir, () => setToken((value) => value + 1))
+      }, [sessionId, project])
 
       React.useEffect(() => {
         if (!sessionId) return undefined
@@ -927,6 +1051,11 @@ window.__ModuleLoader__.load({
                 count: String(state.data?.rows?.length ?? 0),
               })
               : t('page.subtitle')),
+          state.kind === 'ok' && state.data?.meta?.updated_at
+            ? h('p', { className: 'reqmap-context reqmap-updated' },
+              t('page.lastUpdate', { at: stampText(state.data.meta.updated_at) }),
+              live ? h('span', { className: 'reqmap-live' }, t('auto.on')) : null)
+            : null,
         ),
         h('div', { className: 'reqmap-page-form' },
           !fixedSessionId && sessions.length > 1 ? h('label', { className: 'reqmap-label', htmlFor: 'reqmap-session' }, t('page.session')) : null,
@@ -1002,7 +1131,7 @@ window.__ModuleLoader__.load({
             : null,
           state.kind === 'loading' ? h('p', { className: 'reqmap-empty' }, t('page.loading')) : null,
           state.kind === 'error' ? h('div', { className: 'reqmap-error' }, t('page.error') + '：' + state.message) : null,
-          state.kind === 'ok' ? h(RequirementMap, { data: state.data, t, showHeader: false, embedded: true, onSetStatus }) : null,
+          state.kind === 'ok' ? h(RequirementMap, { data: state.data, t, showHeader: false, embedded: true, onSetStatus, live, onToggleLive: () => setLive((value) => !value) }) : null,
           notice && state.kind !== 'none' ? h('p', { className: 'reqmap-notice' }, notice) : null,
           running && state.kind !== 'none' ? h('p', { className: 'reqmap-notice' }, t('page.generating')) : null,
         ),
@@ -1146,6 +1275,39 @@ window.__ModuleLoader__.load({
         return found
       }
 
+      /**
+       * Watch a directory's direct entries so a newly generated ledger appears
+       * without pressing 重新扫描. A watch failure only means manual refresh.
+       */
+      const watchDirectory = (sessionId, path, onChange) => {
+        let disposed = false
+        let handle
+        try {
+          handle = ctx.remote.workspaceFiles.changes(sessionId, path)
+        } catch {
+          return () => {}
+        }
+        const run = async () => {
+          try {
+            for await (const frame of handle) {
+              if (disposed) break
+              if (frame?.kind === 'change') onChange()
+            }
+          } catch {
+            // Watching is best effort; the manual buttons remain.
+          }
+        }
+        void run()
+        return () => {
+          disposed = true
+          try {
+            handle?.dispose?.()
+          } catch {
+            // A already-closed stream is fine.
+          }
+        }
+      }
+
       const watchLedger = (sessionId, path, onChange) => {
         let disposed = false
         let handle
@@ -1175,7 +1337,7 @@ window.__ModuleLoader__.load({
         }
       }
 
-      const face = { listSessions, subscribeSessions, retainedBy, searchLedgers, readLedger, watchLedger }
+      const face = { listSessions, subscribeSessions, retainedBy, searchLedgers, readLedger, watchLedger, watchDirectory }
 
       ctx.effect(() => ctx.slots.inject('main', () => ctx.slots.register({
         name: 'main',

@@ -16,7 +16,7 @@ const STATUS_TEMPLATE = {
 }
 
 const REQUIRED_FIELDS = ['id', 'root', 'group', 'title', 'current', 'status']
-const OPTIONAL_FIELDS = ['old', 'source', 'note']
+const OPTIONAL_FIELDS = ['old', 'source', 'note', 'created', 'updated', 'old_date']
 
 /** A fresh ledger with the generic schema. */
 export function skeleton() {

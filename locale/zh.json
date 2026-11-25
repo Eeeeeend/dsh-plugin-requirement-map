@@ -5,5 +5,16 @@
     "detail": "docs/DETAIL.md"
   },
   "page.merged": "已合并：新增 {added} 条、更新 {updated} 条（共 {count} 条，原台账已备份）",
-  "page.unchanged": "没有发现新的需求变更，台账未改动"
+  "page.unchanged": "没有发现新的需求变更，台账未改动",
+  "date.today": "今天",
+  "date.yesterday": "昨天",
+  "date.daysAgo": "{n} 天前",
+  "when.tip": "最近变更：{date}",
+  "when.changed": "最近变更",
+  "when.replaced": "旧口径记录于",
+  "when.unknown": "未记录",
+  "when.fresh": "近 7 天有变更",
+  "auto.on": "自动刷新",
+  "auto.updated": "刚刚已更新",
+  "page.lastUpdate": "最近更新 {at}"
 }

@@ -5,5 +5,16 @@
     "detail": "docs/DETAIL.md"
   },
   "page.merged": "Merged: {added} added, {updated} updated ({count} total; previous ledger backed up)",
-  "page.unchanged": "No new requirement changes; the ledger was left untouched"
+  "page.unchanged": "No new requirement changes; the ledger was left untouched",
+  "date.today": "today",
+  "date.yesterday": "yesterday",
+  "date.daysAgo": "{n} days ago",
+  "when.tip": "Last changed: {date}",
+  "when.changed": "Last changed",
+  "when.replaced": "Previous wording recorded",
+  "when.unknown": "not recorded",
+  "when.fresh": "Changed in the last 7 days",
+  "auto.on": "Auto-refresh",
+  "auto.updated": "just updated",
+  "page.lastUpdate": "Updated {at}"
 }

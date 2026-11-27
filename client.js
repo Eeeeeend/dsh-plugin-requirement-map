@@ -115,6 +115,9 @@ window.__ModuleLoader__.load({
       'when.changed': '最近变更',
       'when.replaced': '旧口径记录于',
       'when.unknown': '未记录',
+      'when.logged': '登记于',
+      'when.loggedTag': '登记',
+      'when.loggedTip': '进入台账的日期：{date}',
       'auto.on': '自动刷新',
       'auto.updated': '刚刚已更新',
       'page.lastUpdate': '最近更新 {at}',
@@ -177,6 +180,9 @@ window.__ModuleLoader__.load({
       'when.changed': 'Last changed',
       'when.replaced': 'Previous wording recorded',
       'when.unknown': 'not recorded',
+      'when.logged': 'Logged',
+      'when.loggedTag': 'logged',
+      'when.loggedTip': 'Entered the ledger on {date}',
       'auto.on': 'Auto-refresh',
       'auto.updated': 'just updated',
       'page.lastUpdate': 'Updated {at}',
@@ -258,6 +264,7 @@ window.__ModuleLoader__.load({
 .reqmap-badge-select option{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1)}
 .reqmap-status-error{margin:6px 16px 0;color:var(--dsw-alias-state-error-primary,#a33f3f);font-size:11.5px}
 .reqmap-when{flex:none;padding:1px 7px;border-radius:999px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-tertiary);font-size:10.5px;line-height:1.6;white-space:nowrap;font-variant-numeric:tabular-nums}
+.reqmap-when.is-logged{font-style:italic;opacity:.85}
 .reqmap-when.is-fresh{color:var(--dsw-alias-state-business-primary,#2457c5);border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2457c5) 32%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#2457c5) 10%,transparent);font-weight:560}
 .reqmap-dates{display:flex;flex-wrap:wrap;gap:4px 14px;padding:2px 10px 6px;color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums}
 .reqmap-auto{color:var(--dsw-alias-label-tertiary);gap:6px}
@@ -427,11 +434,15 @@ window.__ModuleLoader__.load({
             h('span', { className: 'reqmap-rid' }, row.id),
             h('span', { className: 'reqmap-req-title' }, row.title),
           ),
-          row.updated
+          (row.updated || row.created)
             ? h('span', {
-              className: 'reqmap-when' + (daysAgo(row.updated) !== null && daysAgo(row.updated) <= 7 ? ' is-fresh' : ''),
-              title: t('when.tip', { date: row.updated }),
-            }, relativeDay(row.updated, t))
+              className: 'reqmap-when'
+                + (daysAgo(row.updated || row.created) !== null && daysAgo(row.updated || row.created) <= 7 ? ' is-fresh' : '')
+                + (row.updated ? '' : ' is-logged'),
+              title: row.updated
+                ? t('when.tip', { date: row.updated })
+                : t('when.loggedTip', { date: row.created }),
+            }, (row.updated ? '' : t('when.loggedTag') + ' ') + relativeDay(row.updated || row.created, t))
             : null,
           canEdit && open
             ? h('select', {
@@ -464,6 +475,7 @@ window.__ModuleLoader__.load({
               ),
               h('div', { className: 'reqmap-dates' },
                 h('span', null, t('when.changed') + '：' + (row.updated ? relativeDay(row.updated, t) + ' · ' + row.updated : t('when.unknown'))),
+                row.created ? h('span', null, t('when.logged') + '：' + row.created) : null,
                 row.old_date ? h('span', null, t('when.replaced') + '：' + row.old_date) : null,
               ),
               (row.note || row.source)

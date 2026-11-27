@@ -140,6 +140,11 @@ export async function setStatus(path, id, status) {
   return { ok: true, id, status, title: row.title ?? '' }
 }
 
+/** Local calendar day, used to stamp when a requirement appeared or changed. */
+function today() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 /** Apply one action; returns the JSON-serializable value rendered to the model. */
 export async function run(args) {
   const action = String(args.action ?? '').trim()
@@ -147,6 +152,7 @@ export async function run(args) {
 
   if (action === 'init') {
     const data = skeleton()
+    data.meta.updated_at = new Date().toISOString()
     if (typeof args.title === 'string' && args.title.trim()) data.meta.title = args.title.trim()
     if (Array.isArray(args.roots) && args.roots.length > 0) {
       data.meta.roots = args.roots.map((root) => String(root).trim()).filter(Boolean)
@@ -206,8 +212,12 @@ export async function run(args) {
       row[field] = typeof args[field] === 'string' ? args[field] : ''
     }
     if (rows.some((item) => item.id === row.id)) throw new Error(`duplicate id: ${row.id}`)
+    const stamp = today()
+    row.created = row.created || stamp
+    row.updated = row.updated || stamp
     rows.push(row)
     data.requirements = rows
+    data.meta.updated_at = new Date().toISOString()
     const errors = validateLedger(data)
     if (errors.length > 0) throw new Error(`ledger is invalid after add: ${errors.join('; ')}`)
     await writeLedger(path, data)
@@ -222,6 +232,13 @@ export async function run(args) {
     if (!row) throw new Error(`requirement not found: ${id}`)
     for (const field of ['root', 'group', 'title', 'current', ...OPTIONAL_FIELDS, 'status']) {
       if (typeof args[field] === 'string') row[field] = args[field]
+    }
+    if (typeof args.current === 'string' && args.current.trim()) {
+      // A rewritten requirement keeps the replaced wording, with the day it was replaced.
+      if (typeof args.old !== 'string') row.old = row.old ?? ''
+      row.updated = today()
+      if (!row.created) row.created = row.updated
+      data.meta.updated_at = new Date().toISOString()
     }
     const errors = validateLedger(data)
     if (errors.length > 0) throw new Error(`ledger is invalid after update: ${errors.join('; ')}`)
